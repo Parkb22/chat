@@ -40,6 +40,16 @@ $(function() {
   let $currentInput = $usernameInput;
   let replyingTo = null;
   let activeUsers = new Map(); // Store active users for tagging
+  window.isCurrentUserAdmin = false;
+  
+  // Mention autocomplete state
+  let mentionAutocomplete = {
+    visible: false,
+    selectedIndex: 0,
+    filteredUsers: [],
+    startPos: 0,
+    query: ''
+  };
 
   // Show wallet page initially
   $walletPage.show();
@@ -247,6 +257,194 @@ $(function() {
     return mentionRegex.test(message);
   };
 
+  // Admin functions
+  const deleteMessage = (messageId) => {
+    if (window.isCurrentUserAdmin) {
+      socket.emit('delete message', messageId);
+    }
+  };
+
+  const muteUser = (targetWalletAddress, targetUsername) => {
+    if (window.isCurrentUserAdmin && confirm(`Are you sure you want to mute ${targetUsername}?`)) {
+      socket.emit('mute user', targetWalletAddress);
+    }
+  };
+
+  // Mention autocomplete functions
+  const createAutocompleteDropdown = () => {
+    const $dropdown = $('<div class="mention-autocomplete">');
+    $('.input-section').append($dropdown);
+    return $dropdown;
+  };
+
+  const showMentionAutocomplete = (query, cursorPos) => {
+    const $dropdown = $('.mention-autocomplete').length ? 
+      $('.mention-autocomplete') : createAutocompleteDropdown();
+
+    // Filter users based on query
+    const filteredUsers = Array.from(activeUsers.entries())
+      .filter(([userName, walletAddr]) => 
+        userName.toLowerCase().includes(query.toLowerCase()) && 
+        userName !== username // Don't show current user
+      )
+      .slice(0, 5); // Limit to 5 results
+
+    if (filteredUsers.length === 0) {
+      hideMentionAutocomplete();
+      return;
+    }
+
+    mentionAutocomplete.filteredUsers = filteredUsers;
+    mentionAutocomplete.selectedIndex = 0;
+    mentionAutocomplete.visible = true;
+    mentionAutocomplete.query = query;
+
+    // Clear and populate dropdown
+    $dropdown.empty();
+    
+    filteredUsers.forEach(([userName, walletAddr], index) => {
+      // Check if user is admin
+      const isUserAdmin = Object.values(activeSockets || {}).some(socket => 
+        socket.walletAddress === walletAddr && socket.isAdmin
+      );
+
+      const $item = $('<div class="mention-item">')
+        .attr('data-index', index)
+        .attr('data-username', userName)
+        .html(`
+          <span class="mention-username">${userName}${isUserAdmin ? '<span class="mention-admin-star">★</span>' : ''}</span>
+          <span class="mention-wallet">${walletAddr.slice(0, 8)}...${walletAddr.slice(-4)}</span>
+        `)
+        .on('click', function() {
+          selectMentionUser(userName);
+        })
+        .on('mouseenter', function() {
+          $('.mention-item').removeClass('selected');
+          $(this).addClass('selected');
+          mentionAutocomplete.selectedIndex = index;
+        });
+
+      if (index === 0) {
+        $item.addClass('selected');
+      }
+
+      $dropdown.append($item);
+    });
+
+    $dropdown.addClass('visible');
+  };
+
+  const hideMentionAutocomplete = () => {
+    $('.mention-autocomplete').removeClass('visible');
+    mentionAutocomplete.visible = false;
+    mentionAutocomplete.selectedIndex = 0;
+    mentionAutocomplete.filteredUsers = [];
+  };
+
+  const selectMentionUser = (userName) => {
+    const currentValue = $inputMessage.val();
+    const cursorPos = $inputMessage[0].selectionStart;
+    
+    // Find the @ symbol before cursor
+    let atPos = cursorPos - 1;
+    while (atPos >= 0 && currentValue[atPos] !== '@') {
+      atPos--;
+    }
+
+    if (atPos >= 0) {
+      // Replace from @ to current cursor position with @username
+      const beforeAt = currentValue.substring(0, atPos);
+      const afterCursor = currentValue.substring(cursorPos);
+      const newValue = beforeAt + `@${userName} ` + afterCursor;
+      
+      $inputMessage.val(newValue);
+      
+      // Set cursor position after the mention
+      const newCursorPos = atPos + userName.length + 2; // @ + username + space
+      $inputMessage[0].setSelectionRange(newCursorPos, newCursorPos);
+    }
+
+    hideMentionAutocomplete();
+    $inputMessage.focus();
+  };
+
+  const handleMentionNavigation = (e) => {
+    if (!mentionAutocomplete.visible) return false;
+
+    switch(e.keyCode) {
+      case 38: // Up arrow
+        e.preventDefault();
+        mentionAutocomplete.selectedIndex = Math.max(0, mentionAutocomplete.selectedIndex - 1);
+        updateMentionSelection();
+        return true;
+        
+      case 40: // Down arrow
+        e.preventDefault();
+        mentionAutocomplete.selectedIndex = Math.min(
+          mentionAutocomplete.filteredUsers.length - 1, 
+          mentionAutocomplete.selectedIndex + 1
+        );
+        updateMentionSelection();
+        return true;
+        
+      case 13: // Enter
+        e.preventDefault();
+        const selectedUser = mentionAutocomplete.filteredUsers[mentionAutocomplete.selectedIndex];
+        if (selectedUser) {
+          selectMentionUser(selectedUser[0]);
+        }
+        return true;
+        
+      case 27: // Escape
+        hideMentionAutocomplete();
+        return true;
+    }
+    
+    return false;
+  };
+
+  const updateMentionSelection = () => {
+    $('.mention-item').removeClass('selected');
+    $(`.mention-item[data-index="${mentionAutocomplete.selectedIndex}"]`).addClass('selected');
+  };
+
+  const checkForMentionTrigger = () => {
+    const currentValue = $inputMessage.val();
+    const cursorPos = $inputMessage[0].selectionStart;
+    
+    // Find @ symbol before cursor
+    let atPos = cursorPos - 1;
+    let foundAt = false;
+    
+    // Look backwards from cursor to find @
+    while (atPos >= 0) {
+      const char = currentValue[atPos];
+      if (char === '@') {
+        foundAt = true;
+        break;
+      }
+      if (char === ' ' || char === '\n') {
+        // Found space before @, stop looking
+        break;
+      }
+      atPos--;
+    }
+
+    if (foundAt) {
+      // Get the query after @
+      const query = currentValue.substring(atPos + 1, cursorPos);
+      
+      // Only show if we have some context and no spaces in query
+      if (query.length >= 0 && !query.includes(' ') && !query.includes('\n')) {
+        showMentionAutocomplete(query, cursorPos);
+        return;
+      }
+    }
+    
+    // Hide autocomplete if conditions not met
+    hideMentionAutocomplete();
+  };
+
   // Log a message
   const log = (message, options) => {
     const $el = $('<li>').addClass('log').text(message);
@@ -265,6 +463,12 @@ $(function() {
     const $usernameDiv = $('<span class="username"/>')
       .text(data.username)
       .css('color', getUsernameColor(data.username));
+
+    // Add admin star if user is admin
+    if (data.isAdmin) {
+      const $adminStar = $('<span class="admin-star">★</span>');
+      $usernameDiv.append($adminStar);
+    }
     
     // Make username clickable if wallet address is available
     if (data.walletAddress && !data.typing) {
@@ -305,7 +509,7 @@ $(function() {
     // Add click handler for replies (only if not typing message)
     if (!data.typing) {
       $messageDiv.on('click', function(e) {
-        if (!$(e.target).hasClass('clickable-username')) {
+        if (!$(e.target).hasClass('clickable-username') && !$(e.target).hasClass('delete-btn')) {
           setReplyTo({
             username: data.username,
             message: data.message,
@@ -313,6 +517,43 @@ $(function() {
           });
         }
       });
+
+      // Add admin controls if current user is admin
+      if (window.isCurrentUserAdmin) {
+        const $adminControls = $('<div class="admin-controls">')
+          .css({
+            'opacity': '0',
+            'transition': 'opacity 0.2s ease',
+            'font-size': '0.7rem',
+            'margin-left': '8px'
+          });
+
+        const $deleteBtn = $('<button class="delete-btn admin-btn">')
+          .html('🗑️')
+          .attr('title', 'Delete message')
+          .on('click', function(e) {
+            e.stopPropagation();
+            deleteMessage(data.messageId);
+          });
+
+        const $muteBtn = $('<button class="mute-btn admin-btn">')
+          .html('🔇')
+          .attr('title', 'Mute user')
+          .on('click', function(e) {
+            e.stopPropagation();
+            muteUser(data.walletAddress, data.username);
+          });
+
+        $adminControls.append($deleteBtn, $muteBtn);
+        $messageDiv.append($adminControls);
+
+        // Show admin controls on hover
+        $messageDiv.on('mouseenter', function() {
+          $adminControls.css('opacity', '1');
+        }).on('mouseleave', function() {
+          $adminControls.css('opacity', '0');
+        });
+      }
     }
 
     addMessageElement($messageDiv, options);
@@ -412,6 +653,13 @@ $(function() {
 
   // Keyboard events
   $window.keydown(event => {
+    // Handle mention navigation first if autocomplete is visible
+    if (mentionAutocomplete.visible && $currentInput === $inputMessage) {
+      if (handleMentionNavigation(event)) {
+        return;
+      }
+    }
+    
     if (!(event.ctrlKey || event.metaKey || event.altKey)) {
       $currentInput.focus();
     }
@@ -428,6 +676,12 @@ $(function() {
 
   $inputMessage.on('input', () => {
     updateTyping();
+    checkForMentionTrigger();
+  });
+
+  // Handle clicks to position cursor and update mention autocomplete
+  $inputMessage.on('click keyup', () => {
+    setTimeout(checkForMentionTrigger, 10); // Small delay to ensure cursor position is updated
   });
 
   // Click events
@@ -467,6 +721,11 @@ $(function() {
 
   socket.on('login', (data) => {
     connected = true;
+    window.isCurrentUserAdmin = data.isAdmin || false;
+    
+    if (data.isAdmin) {
+      log('★ You have admin privileges');
+    }
     
     // Update connection status in parent window (for widget header)
     if (window.parent !== window) {
@@ -485,13 +744,21 @@ $(function() {
   });
 
   socket.on('user joined', (data) => {
-    log(`${data.username} joined`);
+    const adminText = data.isAdmin ? ' ★' : '';
+    log(`${data.username}${adminText} joined`);
     addParticipantsMessage(data);
     
     // Add to active users for tagging
     if (data.walletAddress) {
       activeUsers.set(data.username, data.walletAddress);
     }
+    
+    // Store socket info for admin checking in autocomplete
+    if (!window.activeSockets) window.activeSockets = {};
+    window.activeSockets[data.username] = { 
+      walletAddress: data.walletAddress, 
+      isAdmin: data.isAdmin 
+    };
     
     // Update user count in parent window
     if (window.parent !== window) {
@@ -509,6 +776,9 @@ $(function() {
     
     // Remove from active users
     activeUsers.delete(data.username);
+    if (window.activeSockets) {
+      delete window.activeSockets[data.username];
+    }
     
     // Update user count in parent window
     if (window.parent !== window) {
@@ -565,6 +835,39 @@ $(function() {
 
   socket.io.on('reconnect_error', () => {
     log('attempt to reconnect has failed');
+  });
+
+  // Admin event handlers
+  socket.on('message deleted', (data) => {
+    const $messageToDelete = $(`.message[data-message-id="${data.messageId}"]`);
+    if ($messageToDelete.length > 0) {
+      $messageToDelete.fadeOut(300, function() {
+        $(this).remove();
+      });
+    }
+  });
+
+  socket.on('user muted', (data) => {
+    if (data.walletAddress === walletAddress) {
+      log('You have been muted by an administrator');
+      $inputMessage.prop('disabled', true).attr('placeholder', 'You have been muted');
+    } else {
+      log(`A user has been muted`);
+    }
+  });
+
+  socket.on('user unmuted', (data) => {
+    if (data.walletAddress === walletAddress) {
+      log('You have been unmuted');
+      $inputMessage.prop('disabled', false).attr('placeholder', 'Type here...');
+    }
+  });
+
+  // Hide mention autocomplete when clicking outside
+  $(document).on('click', (e) => {
+    if (!$(e.target).closest('.input-section').length) {
+      hideMentionAutocomplete();
+    }
   });
 
 });

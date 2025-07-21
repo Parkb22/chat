@@ -30,6 +30,16 @@ const walletUserMap = new Map();
 // Store active socket connections with their wallet info
 const activeSockets = new Map();
 
+// Admin system
+const ADMIN_WALLET = 'DhNPBXAgDtPwSTeEMcHxGtFLCdx1F8NU9hBdYxzu7W8U';
+const mutedUsers = new Set();
+const deletedMessages = new Set();
+
+// Helper function to check if user is admin
+const isAdmin = (walletAddress) => {
+  return walletAddress === ADMIN_WALLET;
+};
+
 // Helper function to validate Solana wallet address
 const isValidSolanaAddress = (address) => {
   // Basic validation - Solana addresses are typically 32-44 characters long
@@ -139,7 +149,8 @@ io.on('connection', (socket) => {
     // Store socket info
     activeSockets.set(socket.id, {
       username: socket.username,
-      walletAddress: socket.walletAddress
+      walletAddress: socket.walletAddress,
+      isAdmin: isAdmin(socket.walletAddress)
     });
 
     // Clear temporary authentication data
@@ -147,16 +158,19 @@ io.on('connection', (socket) => {
 
     ++numUsers;
     
-    console.log(`User ${socket.username} (${socket.walletAddress}) joined. Total users: ${numUsers}`);
+    console.log(`User ${socket.username} (${socket.walletAddress}) joined. Total users: ${numUsers}${isAdmin(socket.walletAddress) ? ' [ADMIN]' : ''}`);
 
     socket.emit('login', {
-      numUsers: numUsers
+      numUsers: numUsers,
+      isAdmin: isAdmin(socket.walletAddress)
     });
 
     // Echo globally (all clients) that a person has connected
     socket.broadcast.emit('user joined', {
       username: socket.username,
-      numUsers: numUsers
+      numUsers: numUsers,
+      walletAddress: socket.walletAddress,
+      isAdmin: isAdmin(socket.walletAddress)
     });
   });
 
@@ -191,6 +205,12 @@ io.on('connection', (socket) => {
       return;
     }
 
+    // Check if user is muted
+    if (mutedUsers.has(socket.walletAddress)) {
+      socket.emit('error', 'You are muted and cannot send messages');
+      return;
+    }
+
     const message = typeof messageData === 'string' ? messageData : messageData.message;
     const replyTo = messageData.replyTo || null;
 
@@ -205,6 +225,9 @@ io.on('connection', (socket) => {
       mentions.push(match[1]);
     }
 
+    // Generate unique message ID
+    const messageId = Date.now() + '-' + Math.random().toString(36).substr(2, 9);
+
     // Broadcast message with mention data
     const broadcastData = {
       username: socket.username,
@@ -212,8 +235,9 @@ io.on('connection', (socket) => {
       walletAddress: socket.walletAddress,
       replyTo: replyTo,
       mentions: mentions,
-      messageId: Date.now() + Math.random(),
-      timestamp: new Date()
+      messageId: messageId,
+      timestamp: new Date(),
+      isAdmin: isAdmin(socket.walletAddress)
     };
 
     // Send to all other users
@@ -223,6 +247,58 @@ io.on('connection', (socket) => {
     if (mentions.length > 0) {
       console.log(`User ${socket.username} mentioned: ${mentions.join(', ')}`);
     }
+  });
+
+  // Admin: Delete message
+  socket.on('delete message', (messageId) => {
+    if (!isAdmin(socket.walletAddress)) {
+      socket.emit('error', 'Admin privileges required');
+      return;
+    }
+
+    deletedMessages.add(messageId);
+    console.log(`Admin ${socket.username} deleted message: ${messageId}`);
+    
+    // Broadcast deletion to all clients
+    io.emit('message deleted', { messageId });
+  });
+
+  // Admin: Mute user
+  socket.on('mute user', (targetWalletAddress) => {
+    if (!isAdmin(socket.walletAddress)) {
+      socket.emit('error', 'Admin privileges required');
+      return;
+    }
+
+    mutedUsers.add(targetWalletAddress);
+    console.log(`Admin ${socket.username} muted user: ${targetWalletAddress}`);
+    
+    // Find and disconnect the muted user's sockets
+    for (const [socketId, socketInfo] of activeSockets.entries()) {
+      if (socketInfo.walletAddress === targetWalletAddress) {
+        const targetSocket = io.sockets.sockets.get(socketId);
+        if (targetSocket) {
+          targetSocket.emit('user muted', { reason: 'You have been muted by an administrator' });
+        }
+      }
+    }
+    
+    // Broadcast mute to all clients
+    io.emit('user muted', { walletAddress: targetWalletAddress });
+  });
+
+  // Admin: Unmute user
+  socket.on('unmute user', (targetWalletAddress) => {
+    if (!isAdmin(socket.walletAddress)) {
+      socket.emit('error', 'Admin privileges required');
+      return;
+    }
+
+    mutedUsers.delete(targetWalletAddress);
+    console.log(`Admin ${socket.username} unmuted user: ${targetWalletAddress}`);
+    
+    // Broadcast unmute to all clients
+    io.emit('user unmuted', { walletAddress: targetWalletAddress });
   });
 
   // When the client emits 'typing', we broadcast it to others

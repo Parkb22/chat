@@ -338,6 +338,107 @@ ul {
   padding-left: 12px;
 }
 
+/* Message moderation */
+.message.deleted {
+  opacity: 0.5;
+  font-style: italic;
+}
+
+.message.deleted::after {
+  content: ' (deleted)';
+  color: #999;
+  font-size: 0.8rem;
+}
+
+/* Mention Autocomplete */
+.mention-autocomplete {
+  position: absolute;
+  bottom: 100%;
+  left: 0;
+  right: 0;
+  background: #374151;
+  border: 1px solid #4a5568;
+  border-bottom: none;
+  border-radius: 6px 6px 0 0;
+  max-height: 150px;
+  overflow-y: auto;
+  z-index: 1000;
+  display: none;
+}
+
+.mention-autocomplete.visible {
+  display: block;
+}
+
+.mention-item {
+  padding: 8px 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: background-color 0.2s ease;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  font-size: 0.9rem;
+}
+
+.mention-item:last-child {
+  border-bottom: none;
+}
+
+.mention-item:hover,
+.mention-item.selected {
+  background: rgba(129, 140, 248, 0.2);
+}
+
+.mention-item.selected {
+  background: rgba(129, 140, 248, 0.3);
+}
+
+.mention-username {
+  font-weight: 600;
+  color: #e2e8f0;
+}
+
+.mention-wallet {
+  font-family: monospace;
+  font-size: 0.75rem;
+  color: #9ca3af;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mention-admin-star {
+  color: #fbbf24;
+  font-size: 0.8rem;
+}
+
+/* Autocomplete scrollbar */
+.mention-autocomplete::-webkit-scrollbar {
+  width: 4px;
+}
+
+.mention-autocomplete::-webkit-scrollbar-track {
+  background: #2d3748;
+}
+
+.mention-autocomplete::-webkit-scrollbar-thumb {
+  background: #4a5568;
+  border-radius: 2px;
+}
+
+.mention-autocomplete::-webkit-scrollbar-thumb:hover {
+  background: #6b7280;
+}
+
+/* Input area for autocomplete */
+.inputMessage {
+  position: relative;
+}
+
+.input-section {
+  position: relative;
+}
+
 /* Input */
 
 .inputMessage {

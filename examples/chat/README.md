@@ -20,6 +20,7 @@ And point your browser to `http://localhost:3001` (or your configured port). Cli
 - Usernames are permanently linked to wallet addresses
 
 ### 💬 Advanced Chat Features
+- **Dark Mode Interface** - Beautiful dark theme for better user experience
 - Real-time messaging with all connected users
 - Multiple users can join the chat room simultaneously
 - Users can see when others are typing
@@ -30,6 +31,9 @@ And point your browser to `http://localhost:3001` (or your configured port). Cli
 - **@User Tagging** - Tag other users with @username for mentions
 - **Smart Notifications** - Red badge on chat button when tagged (widget closed)
 - **Message Threading** - Visual reply indicators and context
+- **Admin System** - Special privileges for designated wallet addresses
+- **Message Moderation** - Admins can delete messages and mute users
+- **Admin Indicators** - Gold star (★) next to admin usernames
 - Direct blockchain transparency and verification
 
 ### 🎨 Modern UI & Chat Widget
