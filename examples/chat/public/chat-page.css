@@ -1,4 +1,4 @@
-/* Fix user-agent */
+/* Full-Page Chat Interface CSS - NO CONFLICTS */
 
 * {
   box-sizing: border-box;
@@ -24,9 +24,16 @@ ul {
   word-wrap: break-word;
 }
 
-/* Pages */
+/* Chat Container */
+.chat-container {
+  height: 100vh;
+  width: 100vw;
+  background: #111827;
+  color: #f1f5f9;
+}
 
-.pages {
+/* Chat Pages */
+.chat-pages {
   height: 100%;
   margin: 0;
   padding: 0;
@@ -34,7 +41,7 @@ ul {
   background: #111827;
 }
 
-.page {
+.chat-page {
   height: 100%;
   position: absolute;
   width: 100%;
@@ -42,14 +49,17 @@ ul {
   background: #111827;
 }
 
-/* Wallet Connection Page */
+.chat-page.chat-active {
+  display: block;
+}
 
-.wallet.page {
+/* Wallet Connection Page */
+.wallet-page {
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   display: block;
 }
 
-.wallet.page .form {
+.wallet-page .chat-form {
   height: 400px;
   margin-top: -200px;
   position: absolute;
@@ -58,21 +68,21 @@ ul {
   width: 100%;
 }
 
-.wallet.page .title {
+.wallet-page .chat-title {
   font-size: 200%;
   color: #fff;
   font-weight: 300;
   margin-bottom: 10px;
 }
 
-.wallet.page .subtitle {
+.wallet-page .chat-subtitle {
   font-size: 120%;
   color: rgba(255, 255, 255, 0.8);
   font-weight: 200;
   margin-bottom: 30px;
 }
 
-.walletButtons {
+.chat-wallet-buttons {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -80,7 +90,7 @@ ul {
   margin-bottom: 30px;
 }
 
-.connectWallet {
+.chat-connect-wallet {
   background: rgba(255, 255, 255, 0.1);
   border: 2px solid rgba(255, 255, 255, 0.3);
   border-radius: 12px;
@@ -97,34 +107,33 @@ ul {
   justify-content: center;
 }
 
-.connectWallet:hover {
+.chat-connect-wallet:hover {
   background: rgba(255, 255, 255, 0.2);
   border-color: rgba(255, 255, 255, 0.5);
   transform: translateY(-2px);
 }
 
-.connectWallet img {
+.chat-connect-wallet img {
   width: 24px;
   height: 24px;
 }
 
-.connectWallet span {
+.chat-connect-wallet span {
   font-size: 20px;
 }
 
-.walletStatus {
+.chat-wallet-status {
   color: rgba(255, 255, 255, 0.9);
   font-size: 100%;
   min-height: 20px;
 }
 
 /* Username Selection Page */
-
-.username.page {
+.username-page {
   background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
 }
 
-.username.page .form {
+.username-page .chat-form {
   height: 200px;
   margin-top: -100px;
   position: absolute;
@@ -133,26 +142,26 @@ ul {
   width: 100%;
 }
 
-.username.page .title {
+.username-page .chat-title {
   font-size: 200%;
   color: #fff;
   font-weight: 300;
   margin-bottom: 20px;
 }
 
-.walletInfo {
+.chat-wallet-info {
   color: rgba(255, 255, 255, 0.8);
   font-size: 90%;
   margin-bottom: 25px;
   word-break: break-all;
 }
 
-.connectedWallet {
+.chat-connected-wallet {
   font-family: monospace;
   font-weight: 500;
 }
 
-.username.page .usernameInput {
+.username-page .chat-username-input {
   background-color: rgba(255, 255, 255, 0.1);
   border: 2px solid rgba(255, 255, 255, 0.3);
   border-radius: 8px;
@@ -165,31 +174,32 @@ ul {
   transition: all 0.3s ease;
 }
 
-.username.page .usernameInput:focus {
+.username-page .chat-username-input:focus {
   border-color: rgba(255, 255, 255, 0.6);
   background-color: rgba(255, 255, 255, 0.15);
 }
 
-.username.page .usernameInput::placeholder {
+.username-page .chat-username-input::placeholder {
   color: rgba(255, 255, 255, 0.6);
 }
 
-.usernameNote {
+.chat-username-note {
   margin-top: 15px;
 }
 
-.usernameNote small {
+.chat-username-note small {
   color: rgba(255, 255, 255, 0.7);
   font-size: 80%;
 }
 
-/* Chat page */
-
-.chat.page {
-  display: none;
+/* Main Chat Page */
+.chat-page.chat-active .chat-area {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
 }
 
-.userInfo {
+.chat-user-info {
   background: rgba(0, 0, 0, 0.05);
   padding: 8px 20px;
   border-bottom: 1px solid rgba(0, 0, 0, 0.1);
@@ -199,26 +209,26 @@ ul {
   align-items: center;
 }
 
-.userDetails {
+.chat-user-details {
   display: flex;
   align-items: center;
   gap: 12px;
   flex: 1;
 }
 
-.userInfo .walletAddress {
+.chat-wallet-address {
   font-family: monospace;
   color: #666;
   font-size: 80%;
 }
 
-.userInfo .username {
+.chat-username {
   color: #333;
   font-weight: 500;
   font-size: 90%;
 }
 
-.disconnectBtn {
+.chat-disconnect-btn {
   background: linear-gradient(135deg, #ff6b6b, #ee5a52);
   border: none;
   border-radius: 6px;
@@ -230,80 +240,30 @@ ul {
   transition: all 0.3s ease;
 }
 
-.disconnectBtn:hover {
+.chat-disconnect-btn:hover {
   background: linear-gradient(135deg, #ff5252, #d32f2f);
   transform: translateY(-1px);
 }
 
-/* Font */
-
-.messages {
+/* Messages */
+.chat-messages {
   font-size: 150%;
   background: #111827;
+  flex: 1;
+  margin: 0;
+  overflow-y: auto;
+  padding: 10px 20px 20px 20px;
+  scroll-behavior: smooth;
 }
 
-.inputMessage {
-  font-size: 100%;
-}
-
-.log {
+.chat-log {
   color: #d1d5db;
   font-size: 70%;
   margin: 5px;
   text-align: center;
 }
 
-/* Messages */
-
-.chatArea {
-  height: 100%;
-  padding-bottom: 70px; /* Increased to prevent overlap with input */
-  display: flex;
-  flex-direction: column;
-}
-
-.messages {
-  flex: 1;
-  margin: 0;
-  overflow-y: auto;
-  padding: 10px 20px 20px 20px; /* Added bottom padding */
-  scroll-behavior: smooth;
-}
-
-.message.typing .messageBody {
-  color: #9ca3af;
-}
-
-.username {
-  font-weight: 600;
-  overflow: hidden;
-  padding-right: 15px;
-  text-align: right;
-  color: #f3f4f6;
-}
-
-.admin-star {
-  color: #fbbf24;
-  font-size: 0.9rem;
-  font-weight: bold;
-  display: inline;
-}
-
-.clickable-username {
-  cursor: pointer;
-  text-decoration: underline;
-  text-decoration-color: transparent;
-  transition: all 0.2s ease;
-}
-
-.clickable-username:hover {
-  text-decoration-color: currentColor;
-  opacity: 0.8;
-  transform: translateY(-1px);
-}
-
-/* Reply and mention styles for full version */
-.message {
+.chat-message {
   cursor: pointer;
   transition: background-color 0.2s ease;
   padding: 4px 0;
@@ -311,24 +271,24 @@ ul {
   border-radius: 4px;
 }
 
-.message:hover {
+.chat-message:hover {
   background: rgba(0, 0, 0, 0.02);
 }
 
-.message.reply {
+.chat-message.reply {
   margin-left: 20px;
   border-left: 3px solid rgba(102, 126, 234, 0.3);
   padding-left: 12px;
 }
 
-.reply-context {
+.chat-reply-context {
   font-size: 0.8rem;
   color: #999;
   margin-bottom: 3px;
   font-style: italic;
 }
 
-.mention {
+.chat-mention {
   background: rgba(102, 126, 234, 0.15);
   color: #667eea;
   padding: 2px 4px;
@@ -336,26 +296,94 @@ ul {
   font-weight: 600;
 }
 
-.message.mentioned {
+.chat-message.mentioned {
   background: rgba(102, 126, 234, 0.05);
   border-left: 3px solid rgba(102, 126, 234, 0.4);
   padding-left: 12px;
 }
 
-/* Message moderation */
-.message.deleted {
+.chat-message.deleted {
   opacity: 0.5;
   font-style: italic;
 }
 
-.message.deleted::after {
+.chat-message.deleted::after {
   content: ' (deleted)';
   color: #999;
   font-size: 0.8rem;
 }
 
+.chat-message.typing .chat-message-body {
+  color: #9ca3af;
+}
+
+.chat-message-username {
+  font-weight: 600;
+  overflow: hidden;
+  padding-right: 15px;
+  text-align: right;
+  color: #f3f4f6;
+}
+
+.chat-admin-star {
+  color: #fbbf24;
+  font-size: 0.9rem;
+  font-weight: bold;
+  display: inline;
+}
+
+.chat-clickable-username {
+  cursor: pointer;
+  text-decoration: underline;
+  text-decoration-color: transparent;
+  transition: all 0.2s ease;
+}
+
+.chat-clickable-username:hover {
+  text-decoration-color: currentColor;
+  opacity: 0.8;
+  transform: translateY(-1px);
+}
+
+.chat-message-body {
+  color: #f1f5f9;
+}
+
+/* Admin controls */
+.chat-admin-controls {
+  display: inline-flex;
+  gap: 4px;
+  margin-left: 8px;
+}
+
+.chat-admin-btn {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 3px;
+  color: #f1f5f9;
+  cursor: pointer;
+  font-size: 0.7rem;
+  padding: 2px 4px;
+  transition: all 0.2s ease;
+}
+
+.chat-admin-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.4);
+}
+
+.chat-delete-btn:hover {
+  background: rgba(220, 38, 38, 0.3);
+  border-color: rgba(220, 38, 38, 0.5);
+}
+
+.chat-mute-btn:hover {
+  background: rgba(245, 101, 101, 0.3);
+  border-color: rgba(245, 101, 101, 0.5);
+}
+
 /* Mention Autocomplete */
-.mention-autocomplete {
+.chat-mention-autocomplete {
   position: absolute;
   bottom: 100%;
   left: 0;
@@ -370,11 +398,11 @@ ul {
   display: none;
 }
 
-.mention-autocomplete.visible {
+.chat-mention-autocomplete.visible {
   display: block;
 }
 
-.mention-item {
+.chat-mention-item {
   padding: 8px 12px;
   cursor: pointer;
   display: flex;
@@ -385,25 +413,25 @@ ul {
   font-size: 0.9rem;
 }
 
-.mention-item:last-child {
+.chat-mention-item:last-child {
   border-bottom: none;
 }
 
-.mention-item:hover,
-.mention-item.selected {
+.chat-mention-item:hover,
+.chat-mention-item.selected {
   background: rgba(129, 140, 248, 0.2);
 }
 
-.mention-item.selected {
+.chat-mention-item.selected {
   background: rgba(129, 140, 248, 0.3);
 }
 
-.mention-username {
+.chat-mention-username {
   font-weight: 600;
   color: #f3f4f6;
 }
 
-.mention-wallet {
+.chat-mention-wallet {
   font-family: "SF Mono", Monaco, "Cascadia Code", "Roboto Mono", Consolas, monospace;
   font-size: 0.75rem;
   color: #d1d5db;
@@ -411,76 +439,105 @@ ul {
   text-overflow: ellipsis;
 }
 
-.mention-admin-star {
+.chat-mention-admin-star {
   color: #fbbf24;
   font-size: 0.8rem;
 }
 
 /* Autocomplete scrollbar */
-.mention-autocomplete::-webkit-scrollbar {
+.chat-mention-autocomplete::-webkit-scrollbar {
   width: 4px;
 }
 
-.mention-autocomplete::-webkit-scrollbar-track {
+.chat-mention-autocomplete::-webkit-scrollbar-track {
   background: #2d3748;
 }
 
-.mention-autocomplete::-webkit-scrollbar-thumb {
+.chat-mention-autocomplete::-webkit-scrollbar-thumb {
   background: #4a5568;
   border-radius: 2px;
 }
 
-.mention-autocomplete::-webkit-scrollbar-thumb:hover {
+.chat-mention-autocomplete::-webkit-scrollbar-thumb:hover {
   background: #6b7280;
 }
 
-/* Input area for autocomplete */
-.inputMessage {
+/* Input Section */
+.chat-input-section {
   position: relative;
+  background: #374151;
+  border-top: 1px solid #4b5563;
 }
 
-.input-section {
-  position: relative;
+.chat-reply-preview {
+  background: rgba(129, 140, 248, 0.15);
+  border-bottom: 1px solid rgba(129, 140, 248, 0.3);
+  padding: 6px 12px;
+  font-size: 0.8rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }
 
-/* Input */
+.chat-reply-preview.hidden {
+  display: none;
+}
 
-.inputMessage {
-  border: 10px solid #374151;
+.chat-reply-text {
+  color: #a5b4fc;
+}
+
+.chat-reply-username {
+  color: #f3f4f6;
+}
+
+.chat-cancel-reply {
+  background: none;
+  border: none;
+  color: #d1d5db;
+  cursor: pointer;
+  font-size: 1rem;
+  padding: 0 4px;
+  line-height: 1;
+}
+
+.chat-cancel-reply:hover {
+  color: #f3f4f6;
+}
+
+/* Input Field */
+.chat-input-message {
+  border: none;
   background: #4b5563;
   color: #f1f5f9;
-  bottom: 0;
   height: 60px;
-  left: 0;
   outline: none;
-  padding-left: 10px;
-  position: absolute;
-  right: 0;
+  padding: 0 20px;
   width: 100%;
+  font-size: 100%;
 }
 
-.inputMessage::placeholder {
+.chat-input-message::placeholder {
   color: #d1d5db;
 }
 
 /* Responsive Design */
-
 @media (max-width: 600px) {
-  .wallet.page .form {
+  .wallet-page .chat-form {
     padding: 0 20px;
   }
   
-  .connectWallet {
+  .chat-connect-wallet {
     min-width: 250px;
     font-size: 100%;
   }
   
-  .username.page .usernameInput {
+  .username-page .chat-username-input {
     width: 90%;
     max-width: 300px;
   }
   
-  .walletInfo {
+  .chat-wallet-info {
     padding: 0 20px;
   }
-}
+} 

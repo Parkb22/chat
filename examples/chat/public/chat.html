@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Degen Park Chat</title>
+  <link rel="stylesheet" href="chat-page.css">
+</head>
+<body>
+  <div class="chat-container">
+    <ul class="chat-pages">
+      <li class="chat-page chat-active">
+        <div class="chat-area">
+          <div class="chat-user-info">
+            <div class="chat-user-details">
+              <span class="chat-wallet-address"></span>
+              <span class="chat-username"></span>
+            </div>
+            <button class="chat-disconnect-btn" title="Disconnect and leave chat">
+              🚪 Disconnect
+            </button>
+          </div>
+          <ul class="chat-messages"></ul>
+        </div>
+        <div class="chat-input-section">
+          <div id="chatReplyPreview" class="chat-reply-preview hidden">
+            <span class="chat-reply-text">Replying to <strong class="chat-reply-username"></strong></span>
+            <button class="chat-cancel-reply">×</button>
+          </div>
+          <input class="chat-input-message" placeholder="Type here..."/>
+        </div>
+      </li>
+      <li class="chat-page username-page">
+        <div class="chat-form">
+          <h3 class="chat-title">Choose your nickname</h3>
+          <p class="chat-wallet-info">Connected wallet: <span class="chat-connected-wallet"></span></p>
+          <input class="chat-username-input" type="text" maxlength="14" placeholder="Enter your nickname" />
+          <div class="chat-username-note">
+            <small>This nickname will be permanently linked to your wallet address</small>
+          </div>
+        </div>
+      </li>
+      <li class="chat-page wallet-page chat-active">
+        <div class="chat-form">
+          <h3 class="chat-title">Connect Your Wallet</h3>
+          <p class="chat-subtitle">Please connect your Solana wallet to join Degen Park Chat</p>
+          <div class="chat-wallet-buttons">
+            <button class="chat-connect-wallet" id="phantom">
+              <img src="data:image/svg+xml;base64,PHN2ZyBmaWxsPSJub25lIiBoZWlnaHQ9IjM0IiB3aWR0aD0iMzQiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGxpbmVhckdyYWRpZW50IGlkPSJhIiB4MT0iLjUiIHgyPSIuNSIgeTE9IjAiIHkyPSIxIj48c3RvcCBvZmZzZXQ9IjAiIHN0b3AtY29sb3I9IiM1MzRiYjEiLz48c3RvcCBvZmZzZXQ9IjEiIHN0b3AtY29sb3I9IiM1NTFiZjkiLz48L2xpbmVhckdyYWRpZW50PjxsaW5lYXJHcmFkaWVudCBpZD0iYiIgeDE9Ii41IiB4Mj0iLjUiIHkxPSIwIiB5Mj0iMSI+PHN0b3Agb2Zmc2V0PSIwIiBzdG9wLWNvbG9yPSIjZmZmIi8+PHN0b3Agb2Zmc2V0PSIxIiBzdG9wLWNvbG9yPSIjZmZmIiBzdG9wLW9wYWNpdHk9Ii44MiIvPjwvbGluZWFyR3JhZGllbnQ+PGNpcmNsZSBjeD0iMTciIGN5PSIxNyIgZmlsbD0idXJsKCNhKSIgcj0iMTciLz48cGF0aCBkPSJtMjEuMjc5MSAxMi4zNzQzYy4yOTUxLS40OTQ2LjE4MDMtMS4xMjY3LS4yNTEzLTEuNDY1OGwtLjU3NDgtLjQ1MTljLS4zNzE5LS4yOTI1LS44ODUyLS4yOTA2LTEuMjU0OC4wMDMzLS4zNjk2LjI5MzgtLjg5NzMuMjk5Ni0xLjI3MzMuMDEzNHMtLjg5MDgtLjI2ODgtMS4yODQyLjAwMzRjLS4zOTM0LjI3MjMtLjkyODEuMjk5MS0xLjMyNjMuMDc2LS4zOTgxLS4yMjMxLS45MTYzLS4yMDQtMS4zMDM0LjA0OGwtLjU2MS40NTQyYy0uNDQzMi4zNTgxLS41NTUxLjk5NTItLjI1OTQgMS40NjE1bC0uMTkzNC4xMDQ1LS4xNDM2LS4wMjE2Yy0uMzg1NC0uMDU4LS43MDA1LjI2OTEtLjcwNzguNjYyNmwtLjAzNDcgMS44NzQ5Yy0uMDA0OS4yNjYyLjE5MDguNDc4OS40NDcxLjUwMjguMzE4Ni4wMjk3LjU5NzctLjE5NDMuNjI3Mi0uNTE4Ny4wMjk1LS4zMjQzLS4yMzc0LS42MDY1LS41OTU2LS42MzAyeiIgZmlsbD0idXJsKCNiKSIvPjwvc3ZnPg==" alt="Phantom" />
+              Connect Phantom
+            </button>
+            <button class="chat-connect-wallet" id="solflare">
+              <img src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzIiIGhlaWdodD0iMzIiIHZpZXdCb3g9IjAgMCAzMiAzMiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iMTYiIGN5PSIxNiIgcj0iMTYiIGZpbGw9InVybCgjcGFpbnQwX2xpbmVhcl8zODdfMjI0KSIvPgo8ZGVmcz4KPGxpbmVhckdyYWRpZW50IGlkPSJwYWludDBfbGluZWFyXzM4N18yMjQiIHgxPSIxNiIgeTE9IjAiIHgyPSIxNiIgeTI9IjMyIiBncmFkaWVudFVuaXRzPSJ1c2VyU3BhY2VPblVzZSI+CjxzdG9wIHN0b3AtY29sb3I9IiNGRkM5NDciLz4KPHN0b3Agb2Zmc2V0PSIxIiBzdG9wLWNvbG9yPSIjRkZBMzM4Ii8+CjwvbGluZWFyR3JhZGllbnQ+CjwvZGVmcz4KPHN2ZyB3aWR0aD0iMTYiIGhlaWdodD0iMTYiIHZpZXdCb3g9IjAgMCAxNiAxNiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTEyIDRINEMzLjQ0NzcgNCAzIDQuNDQ3NzIgMyA1VjExQzMgMTEuNTUyMyAzLjQ0NzcgMTIgNCAxMkgxMkMxMi41NTIzIDEyIDEzIDExLjU1MjMgMTMgMTFWNUMxMyA0LjQ0NzcyIDEyLjU1MjMgNCAxMiA0WiIgZmlsbD0id2hpdGUiLz4KPHBhdGggZD0iTTEwIDZINkM1LjQ0NzcyIDYgNSA2LjQ0NzcyIDUgN1Y5QzUgOS41NTIyOCA1LjQ0NzcyIDEwIDYgMTBIMTBDMTAuNTUyMyAxMCAxMSA5LjU1MjI4IDExIDlWN0MxMSA2LjQ0NzcyIDEwLjU1MjMgNiAxMCA2WiIgZmlsbD0iI0ZGQzk0NyIvPgo8L3N2Zz4KPC9zdmc+Cg==" alt="Solflare" />
+              Connect Solflare
+            </button>
+            <button class="chat-connect-wallet" id="backpack">
+              <span>🎒</span>
+              Connect Backpack
+            </button>
+          </div>
+          <div class="chat-wallet-status"></div>
+        </div>
+      </li>
+    </ul>
+  </div>
+
+  <script src="https://code.jquery.com/jquery-1.10.2.min.js"></script>
+  <script src="https://unpkg.com/@solana/web3.js@latest/lib/index.iife.min.js"></script>
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/chat-main.js"></script>
+</body>
+</html> 

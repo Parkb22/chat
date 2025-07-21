@@ -22,6 +22,11 @@ app.get('/', (req, res) => {
   res.redirect('/landing.html');
 });
 
+// Serve the full-page chat interface
+app.get('/chat', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'chat.html'));
+});
+
 // Chatroom with Solana wallet authentication
 
 let numUsers = 0;

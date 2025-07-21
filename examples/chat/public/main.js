@@ -52,7 +52,7 @@ $(function() {
   };
 
   // Show wallet page initially
-  $walletPage.show();
+  $walletPage.addClass('active');
 
   // Wallet connection functionality
   const getWalletProvider = (walletType) => {
@@ -87,7 +87,7 @@ $(function() {
       
       // Create a message to sign for authentication
       const timestamp = Date.now();
-      const message = `Sign this message to authenticate with Socket.IO Chat\nWallet: ${walletAddress}\nTimestamp: ${timestamp}`;
+      const message = `Sign this message to authenticate with DegenChat\nWallet: ${walletAddress}\nTimestamp: ${timestamp}`;
       const encodedMessage = new TextEncoder().encode(message);
       
       // Request signature
@@ -128,9 +128,9 @@ $(function() {
       connected = false;
       
       // Reset UI
-      $chatPage.hide();
-      $usernamePage.hide();
-      $walletPage.show();
+      $chatPage.removeClass('active');
+      $usernamePage.removeClass('active');
+      $walletPage.addClass('active');
       $walletStatus.text('');
       $connectedWallet.text('');
       $walletAddress.text('');
@@ -179,8 +179,8 @@ $(function() {
 
     if (inputUsername && walletAddress) {
       username = inputUsername;
-      $usernamePage.fadeOut();
-      $chatPage.show();
+      $usernamePage.removeClass('active');
+      $chatPage.addClass('active');
       $usernamePage.off('click');
       $currentInput = $inputMessage.focus();
 
@@ -194,8 +194,8 @@ $(function() {
   }
 
   const showUsernamePage = () => {
-    $walletPage.fadeOut();
-    $usernamePage.show();
+    $walletPage.removeClass('active');
+    $usernamePage.addClass('active');
     $currentInput = $usernameInput.focus();
   }
 
@@ -281,13 +281,22 @@ $(function() {
     const $dropdown = $('.mention-autocomplete').length ? 
       $('.mention-autocomplete') : createAutocompleteDropdown();
 
-    // Filter users based on query
+    // Filter users based on query with smart matching
     const filteredUsers = Array.from(activeUsers.entries())
       .filter(([userName, walletAddr]) => 
         userName.toLowerCase().includes(query.toLowerCase()) && 
         userName !== username // Don't show current user
       )
-      .slice(0, 5); // Limit to 5 results
+      .sort(([userA], [userB]) => {
+        // Prioritize exact starts with matches
+        const aStartsWith = userA.toLowerCase().startsWith(query.toLowerCase());
+        const bStartsWith = userB.toLowerCase().startsWith(query.toLowerCase());
+        if (aStartsWith && !bStartsWith) return -1;
+        if (bStartsWith && !aStartsWith) return 1;
+        // Then sort alphabetically
+        return userA.localeCompare(userB);
+      })
+      .slice(0, 5); // Limit to 5 results max
 
     if (filteredUsers.length === 0) {
       hideMentionAutocomplete();
@@ -701,9 +710,9 @@ $(function() {
     console.log('Existing user found:', username);
     
     // Hide all other pages and show chat
-    $walletPage.hide();
-    $usernamePage.hide();
-    $chatPage.show();
+    $walletPage.removeClass('active');
+    $usernamePage.removeClass('active');
+    $chatPage.addClass('active');
     $currentInput = $inputMessage.focus();
     
     // Display user info
