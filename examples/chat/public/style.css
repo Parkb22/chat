@@ -204,6 +204,12 @@ ul {
   align-items: center;
 }
 
+.userDetails {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
 .userInfo .walletAddress {
   font-family: monospace;
   color: #666;
@@ -213,6 +219,23 @@ ul {
 .userInfo .username {
   color: #333;
   font-weight: 500;
+}
+
+.disconnectBtn {
+  background: linear-gradient(135deg, #ff6b6b, #ee5a52);
+  border: none;
+  border-radius: 6px;
+  color: white;
+  cursor: pointer;
+  font-size: 80%;
+  font-weight: 500;
+  padding: 8px 12px;
+  transition: all 0.3s ease;
+}
+
+.disconnectBtn:hover {
+  background: linear-gradient(135deg, #ff5252, #d32f2f);
+  transform: translateY(-1px);
 }
 
 /* Font */

@@ -8,7 +8,9 @@
   "license": "BSD",
   "dependencies": {
     "express": "~4.17.1",
-    "socket.io": "^4.0.0"
+    "socket.io": "^4.0.0",
+    "tweetnacl": "^1.0.3",
+    "bs58": "^4.0.1"
   },
   "scripts": {
     "start": "node index.js"

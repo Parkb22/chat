@@ -24,6 +24,7 @@ $(function() {
   const $connectedWallet = $('.connectedWallet');
   const $walletAddress = $('.walletAddress');
   const $usernameDisplay = $('.username');
+  const $disconnectBtn = $('.disconnectBtn');
 
   const socket = io();
 
@@ -68,15 +69,67 @@ $(function() {
       wallet = walletProvider;
       walletAddress = response.publicKey.toString();
       
-      $walletStatus.text('Connected successfully!');
+      $walletStatus.text('Verifying ownership...');
+      
+      // Create a message to sign for authentication
+      const timestamp = Date.now();
+      const message = `Sign this message to authenticate with Socket.IO Chat\nWallet: ${walletAddress}\nTimestamp: ${timestamp}`;
+      const encodedMessage = new TextEncoder().encode(message);
+      
+      // Request signature
+      const signedMessage = await walletProvider.signMessage(encodedMessage, 'utf8');
+      
+      $walletStatus.text('Connected and verified!');
       $connectedWallet.text(walletAddress.substring(0, 4) + '...' + walletAddress.substring(walletAddress.length - 4));
       
       // Check if user already has a username for this wallet
-      socket.emit('check user', walletAddress);
+      socket.emit('check user', { 
+        walletAddress, 
+        signature: Array.from(signedMessage.signature),
+        message: message,
+        timestamp: timestamp
+      });
       
     } catch (error) {
       console.error('Wallet connection failed:', error);
-      $walletStatus.text('Connection failed. Please try again.');
+      if (error.message?.includes('User rejected')) {
+        $walletStatus.text('Authentication cancelled by user.');
+      } else {
+        $walletStatus.text('Connection failed. Please try again.');
+      }
+    }
+  };
+
+  // Disconnect functionality
+  const disconnectWallet = async () => {
+    try {
+      if (wallet && wallet.disconnect) {
+        await wallet.disconnect();
+      }
+      
+      // Reset all state
+      wallet = null;
+      walletAddress = null;
+      username = null;
+      connected = false;
+      
+      // Reset UI
+      $chatPage.hide();
+      $usernamePage.hide();
+      $walletPage.show();
+      $walletStatus.text('');
+      $connectedWallet.text('');
+      $walletAddress.text('');
+      $usernameDisplay.text('');
+      $usernameInput.val('');
+      $currentInput = $usernameInput;
+      
+      // Disconnect from socket
+      socket.emit('disconnect user');
+      
+      console.log('Successfully disconnected');
+    } catch (error) {
+      console.error('Disconnect error:', error);
     }
   };
 
@@ -84,6 +137,11 @@ $(function() {
   $connectButtons.on('click', function() {
     const walletType = $(this).attr('id');
     connectWallet(walletType);
+  });
+
+  // Disconnect button event listener
+  $disconnectBtn.on('click', () => {
+    disconnectWallet();
   });
 
   const addParticipantsMessage = (data) => {
@@ -276,10 +334,15 @@ $(function() {
   socket.on('user exists', (data) => {
     // User already exists for this wallet, use existing username
     username = data.username;
-    $usernamePage.fadeOut();
+    console.log('Existing user found:', username);
+    
+    // Hide all other pages and show chat
+    $walletPage.hide();
+    $usernamePage.hide();
     $chatPage.show();
     $currentInput = $inputMessage.focus();
     
+    // Display user info
     $walletAddress.text(walletAddress.substring(0, 8) + '...' + walletAddress.substring(walletAddress.length - 8));
     $usernameDisplay.text(`(${username})`);
     
@@ -289,6 +352,7 @@ $(function() {
 
   socket.on('user new', () => {
     // New wallet, show username selection page
+    console.log('New user, showing username page');
     showUsernamePage();
   });
 
@@ -328,10 +392,25 @@ $(function() {
     log('you have been disconnected');
   });
 
+  socket.on('error', (errorMessage) => {
+    console.error('Socket error:', errorMessage);
+    
+    // Handle authentication errors
+    if (errorMessage.includes('Authentication') || errorMessage.includes('signature')) {
+      $walletStatus.text('Authentication failed: ' + errorMessage);
+      // Reset state and show wallet page
+      disconnectWallet();
+    } else {
+      log('Error: ' + errorMessage);
+    }
+  });
+
   socket.io.on('reconnect', () => {
     log('you have been reconnected');
     if (username && walletAddress) {
-      socket.emit('add user', { walletAddress, username });
+      // On reconnect, we need to re-authenticate
+      log('Reconnecting... please reconnect your wallet');
+      disconnectWallet();
     }
   });
 

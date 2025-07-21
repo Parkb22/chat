@@ -6,6 +6,10 @@ const server = require('http').createServer(app);
 const io = require('socket.io')(server);
 const port = process.env.PORT || 3001;
 
+// For signature verification
+const nacl = require('tweetnacl');
+const bs58 = require('bs58');
+
 server.listen(port, () => {
   console.log('Server listening at port %d', port);
 });
@@ -27,17 +31,56 @@ const isValidSolanaAddress = (address) => {
   return typeof address === 'string' && address.length >= 32 && address.length <= 44;
 };
 
+// Helper function to verify Solana wallet signature
+const verifySignature = (message, signature, publicKey) => {
+  try {
+    const messageBytes = new TextEncoder().encode(message);
+    const signatureBytes = new Uint8Array(signature);
+    const publicKeyBytes = bs58.decode(publicKey);
+    
+    return nacl.sign.detached.verify(messageBytes, signatureBytes, publicKeyBytes);
+  } catch (error) {
+    console.error('Signature verification error:', error);
+    return false;
+  }
+};
+
 io.on('connection', (socket) => {
   console.log('New connection:', socket.id);
 
   // When client wants to check if user exists for a wallet
-  socket.on('check user', (walletAddress) => {
-    console.log('Checking user for wallet:', walletAddress);
+  socket.on('check user', (data) => {
+    console.log('Checking user for wallet with signature verification');
     
+    if (!data || !data.walletAddress || !data.signature || !data.message) {
+      socket.emit('error', 'Missing authentication data');
+      return;
+    }
+
+    const { walletAddress, signature, message, timestamp } = data;
+
     if (!isValidSolanaAddress(walletAddress)) {
       socket.emit('error', 'Invalid wallet address');
       return;
     }
+
+    // Verify timestamp is recent (within 5 minutes)
+    const currentTime = Date.now();
+    if (currentTime - timestamp > 5 * 60 * 1000) {
+      socket.emit('error', 'Authentication expired, please reconnect');
+      return;
+    }
+
+    // Verify the signature
+    if (!verifySignature(message, signature, walletAddress)) {
+      socket.emit('error', 'Invalid signature - authentication failed');
+      return;
+    }
+
+    console.log('Signature verified for wallet:', walletAddress);
+
+    // Store authentication data temporarily
+    socket.tempAuth = { walletAddress, verified: true };
 
     if (walletUserMap.has(walletAddress)) {
       const username = walletUserMap.get(walletAddress);
@@ -60,6 +103,12 @@ io.on('connection', (socket) => {
 
     if (!isValidSolanaAddress(walletAddress)) {
       socket.emit('error', 'Invalid wallet address');
+      return;
+    }
+
+    // Check if socket has valid temporary authentication
+    if (!socket.tempAuth || !socket.tempAuth.verified || socket.tempAuth.walletAddress !== walletAddress) {
+      socket.emit('error', 'Authentication required - please reconnect wallet');
       return;
     }
 
@@ -88,6 +137,9 @@ io.on('connection', (socket) => {
       walletAddress: socket.walletAddress
     });
 
+    // Clear temporary authentication data
+    delete socket.tempAuth;
+
     ++numUsers;
     
     console.log(`User ${socket.username} (${socket.walletAddress}) joined. Total users: ${numUsers}`);
@@ -101,6 +153,30 @@ io.on('connection', (socket) => {
       username: socket.username,
       numUsers: numUsers
     });
+  });
+
+  // Handle user disconnect request
+  socket.on('disconnect user', () => {
+    console.log('User requested disconnect:', socket.id);
+    
+    if (activeSockets.has(socket.id)) {
+      const userInfo = activeSockets.get(socket.id);
+      activeSockets.delete(socket.id);
+      --numUsers;
+
+      console.log(`User ${userInfo.username} (${userInfo.walletAddress}) disconnected. Total users: ${numUsers}`);
+
+      // Echo globally that this client has left
+      socket.broadcast.emit('user left', {
+        username: userInfo.username,
+        numUsers: numUsers
+      });
+
+      // Clear socket authentication data
+      delete socket.username;
+      delete socket.walletAddress;
+      delete socket.tempAuth;
+    }
   });
 
   // When the client emits 'new message', this listens and executes
@@ -154,6 +230,9 @@ io.on('connection', (socket) => {
         numUsers: numUsers
       });
     }
+
+    // Clean up any temporary authentication data
+    delete socket.tempAuth;
   });
 
   // Handle errors
