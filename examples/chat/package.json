@@ -1,7 +1,7 @@
 {
   "name": "socket.io-chat",
   "version": "0.0.0",
-  "description": "A simple chat client using socket.io",
+  "description": "A simple chat client using socket.io with Solana wallet authentication",
   "main": "index.js",
   "author": "Grant Timmerman",
   "private": true,

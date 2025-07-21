@@ -9,21 +9,82 @@ $(function() {
 
   // Initialize variables
   const $window = $(window);
-  const $usernameInput = $('.usernameInput'); // Input for username
-  const $messages = $('.messages');           // Messages area
-  const $inputMessage = $('.inputMessage');   // Input message input box
+  const $usernameInput = $('.usernameInput');
+  const $messages = $('.messages');
+  const $inputMessage = $('.inputMessage');
 
-  const $loginPage = $('.login.page');        // The login page
-  const $chatPage = $('.chat.page');          // The chatroom page
+  // Pages
+  const $walletPage = $('.wallet.page');
+  const $usernamePage = $('.username.page');
+  const $chatPage = $('.chat.page');
+
+  // Wallet elements
+  const $connectButtons = $('.connectWallet');
+  const $walletStatus = $('.walletStatus');
+  const $connectedWallet = $('.connectedWallet');
+  const $walletAddress = $('.walletAddress');
+  const $usernameDisplay = $('.username');
 
   const socket = io();
 
-  // Prompt for setting a username
-  let username;
+  // State variables
+  let wallet = null;
+  let walletAddress = null;
+  let username = null;
   let connected = false;
   let typing = false;
   let lastTypingTime;
-  let $currentInput = $usernameInput.focus();
+  let $currentInput = $usernameInput;
+
+  // Show wallet page initially
+  $walletPage.show();
+
+  // Wallet connection functionality
+  const getWalletProvider = (walletType) => {
+    switch(walletType) {
+      case 'phantom':
+        return window.solana || window.phantom?.solana;
+      case 'solflare':
+        return window.solflare;
+      case 'backpack':
+        return window.backpack;
+      default:
+        return null;
+    }
+  };
+
+  const connectWallet = async (walletType) => {
+    try {
+      $walletStatus.text('Connecting...');
+      
+      const walletProvider = getWalletProvider(walletType);
+      
+      if (!walletProvider) {
+        $walletStatus.text(`${walletType} wallet not found. Please install the extension.`);
+        return;
+      }
+
+      const response = await walletProvider.connect();
+      wallet = walletProvider;
+      walletAddress = response.publicKey.toString();
+      
+      $walletStatus.text('Connected successfully!');
+      $connectedWallet.text(walletAddress.substring(0, 4) + '...' + walletAddress.substring(walletAddress.length - 4));
+      
+      // Check if user already has a username for this wallet
+      socket.emit('check user', walletAddress);
+      
+    } catch (error) {
+      console.error('Wallet connection failed:', error);
+      $walletStatus.text('Connection failed. Please try again.');
+    }
+  };
+
+  // Wallet button event listeners
+  $connectButtons.on('click', function() {
+    const walletType = $(this).attr('id');
+    connectWallet(walletType);
+  });
 
   const addParticipantsMessage = (data) => {
     let message = '';
@@ -37,30 +98,37 @@ $(function() {
 
   // Sets the client's username
   const setUsername = () => {
-    username = cleanInput($usernameInput.val().trim());
+    const inputUsername = cleanInput($usernameInput.val().trim());
 
-    // If the username is valid
-    if (username) {
-      $loginPage.fadeOut();
+    if (inputUsername && walletAddress) {
+      username = inputUsername;
+      $usernamePage.fadeOut();
       $chatPage.show();
-      $loginPage.off('click');
+      $usernamePage.off('click');
       $currentInput = $inputMessage.focus();
 
-      // Tell the server your username
-      socket.emit('add user', username);
+      // Display wallet and username info
+      $walletAddress.text(walletAddress.substring(0, 8) + '...' + walletAddress.substring(walletAddress.length - 8));
+      $usernameDisplay.text(`(${username})`);
+
+      // Tell the server about the wallet-username combination
+      socket.emit('add user', { walletAddress, username });
     }
+  }
+
+  const showUsernamePage = () => {
+    $walletPage.fadeOut();
+    $usernamePage.show();
+    $currentInput = $usernameInput.focus();
   }
 
   // Sends a chat message
   const sendMessage = () => {
     let message = $inputMessage.val();
-    // Prevent markup from being injected into the message
     message = cleanInput(message);
-    // if there is a non-empty message and a socket connection
     if (message && connected) {
       $inputMessage.val('');
       addChatMessage({ username, message });
-      // tell server to execute 'new message' and send along one parameter
       socket.emit('new message', message);
     }
   }
@@ -73,7 +141,6 @@ $(function() {
 
   // Adds the visual chat message to the message list
   const addChatMessage = (data, options = {}) => {
-    // Don't fade the message in if there is an 'X was typing'
     const $typingMessages = getTypingMessages(data);
     if ($typingMessages.length !== 0) {
       options.fade = false;
@@ -110,13 +177,8 @@ $(function() {
   }
 
   // Adds a message element to the messages and scrolls to the bottom
-  // el - The element to add as a message
-  // options.fade - If the element should fade-in (default = true)
-  // options.prepend - If the element should prepend
-  //   all other messages (default = false)
   const addMessageElement = (el, options) => {
     const $el = $(el);
-    // Setup default options
     if (!options) {
       options = {};
     }
@@ -127,7 +189,6 @@ $(function() {
       options.prepend = false;
     }
 
-    // Apply options
     if (options.fade) {
       $el.hide().fadeIn(FADE_TIME);
     }
@@ -174,30 +235,25 @@ $(function() {
 
   // Gets the color of a username through our hash function
   const getUsernameColor = (username) => {
-    // Compute hash code
     let hash = 7;
     for (let i = 0; i < username.length; i++) {
       hash = username.charCodeAt(i) + (hash << 5) - hash;
     }
-    // Calculate color
     const index = Math.abs(hash % COLORS.length);
     return COLORS[index];
   }
 
   // Keyboard events
-
   $window.keydown(event => {
-    // Auto-focus the current input when a key is typed
     if (!(event.ctrlKey || event.metaKey || event.altKey)) {
       $currentInput.focus();
     }
-    // When the client hits ENTER on their keyboard
     if (event.which === 13) {
       if (username) {
         sendMessage();
         socket.emit('stop typing');
         typing = false;
-      } else {
+      } else if (walletAddress) {
         setUsername();
       }
     }
@@ -208,54 +264,62 @@ $(function() {
   });
 
   // Click events
-
-  // Focus input when clicking anywhere on login page
-  $loginPage.click(() => {
+  $usernamePage.click(() => {
     $currentInput.focus();
   });
 
-  // Focus input when clicking on the message input's border
   $inputMessage.click(() => {
     $inputMessage.focus();
   });
 
   // Socket events
+  socket.on('user exists', (data) => {
+    // User already exists for this wallet, use existing username
+    username = data.username;
+    $usernamePage.fadeOut();
+    $chatPage.show();
+    $currentInput = $inputMessage.focus();
+    
+    $walletAddress.text(walletAddress.substring(0, 8) + '...' + walletAddress.substring(walletAddress.length - 8));
+    $usernameDisplay.text(`(${username})`);
+    
+    // Join the chat with existing credentials
+    socket.emit('add user', { walletAddress, username });
+  });
 
-  // Whenever the server emits 'login', log the login message
+  socket.on('user new', () => {
+    // New wallet, show username selection page
+    showUsernamePage();
+  });
+
   socket.on('login', (data) => {
     connected = true;
-    // Display the welcome message
-    const message = 'Welcome to Socket.IO Chat – ';
+    const message = 'Welcome to Socket.IO Chat with Solana Authentication – ';
     log(message, {
       prepend: true
     });
     addParticipantsMessage(data);
   });
 
-  // Whenever the server emits 'new message', update the chat body
   socket.on('new message', (data) => {
     addChatMessage(data);
   });
 
-  // Whenever the server emits 'user joined', log it in the chat body
   socket.on('user joined', (data) => {
     log(`${data.username} joined`);
     addParticipantsMessage(data);
   });
 
-  // Whenever the server emits 'user left', log it in the chat body
   socket.on('user left', (data) => {
     log(`${data.username} left`);
     addParticipantsMessage(data);
     removeChatTyping(data);
   });
 
-  // Whenever the server emits 'typing', show the typing message
   socket.on('typing', (data) => {
     addChatTyping(data);
   });
 
-  // Whenever the server emits 'stop typing', kill the typing message
   socket.on('stop typing', (data) => {
     removeChatTyping(data);
   });
@@ -266,8 +330,8 @@ $(function() {
 
   socket.io.on('reconnect', () => {
     log('you have been reconnected');
-    if (username) {
-      socket.emit('add user', username);
+    if (username && walletAddress) {
+      socket.emit('add user', { walletAddress, username });
     }
   });
 

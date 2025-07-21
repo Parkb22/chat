@@ -44,52 +44,175 @@ ul {
   height: 100%;
   position: absolute;
   width: 100%;
+  display: none;
 }
 
-/* Login Page */
+/* Wallet Connection Page */
 
-.login.page {
-  background-color: #000;
+.wallet.page {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  display: block;
 }
 
-.login.page .form {
-  height: 100px;
-  margin-top: -100px;
+.wallet.page .form {
+  height: 400px;
+  margin-top: -200px;
   position: absolute;
-
   text-align: center;
   top: 50%;
   width: 100%;
 }
 
-.login.page .form .usernameInput {
-  background-color: transparent;
-  border: none;
-  border-bottom: 2px solid #fff;
-  outline: none;
-  padding-bottom: 15px;
-  text-align: center;
-  width: 400px;
-}
-
-.login.page .title {
+.wallet.page .title {
   font-size: 200%;
-}
-
-.login.page .usernameInput {
-  font-size: 200%;
-  letter-spacing: 3px;
-}
-
-.login.page .title, .login.page .usernameInput {
   color: #fff;
-  font-weight: 100;
+  font-weight: 300;
+  margin-bottom: 10px;
+}
+
+.wallet.page .subtitle {
+  font-size: 120%;
+  color: rgba(255, 255, 255, 0.8);
+  font-weight: 200;
+  margin-bottom: 30px;
+}
+
+.walletButtons {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 15px;
+  margin-bottom: 30px;
+}
+
+.connectWallet {
+  background: rgba(255, 255, 255, 0.1);
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-radius: 12px;
+  color: #fff;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 110%;
+  font-weight: 400;
+  padding: 15px 25px;
+  transition: all 0.3s ease;
+  min-width: 200px;
+  justify-content: center;
+}
+
+.connectWallet:hover {
+  background: rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.5);
+  transform: translateY(-2px);
+}
+
+.connectWallet img {
+  width: 24px;
+  height: 24px;
+}
+
+.connectWallet span {
+  font-size: 20px;
+}
+
+.walletStatus {
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 100%;
+  min-height: 20px;
+}
+
+/* Username Selection Page */
+
+.username.page {
+  background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+}
+
+.username.page .form {
+  height: 200px;
+  margin-top: -100px;
+  position: absolute;
+  text-align: center;
+  top: 50%;
+  width: 100%;
+}
+
+.username.page .title {
+  font-size: 200%;
+  color: #fff;
+  font-weight: 300;
+  margin-bottom: 20px;
+}
+
+.walletInfo {
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 90%;
+  margin-bottom: 25px;
+  word-break: break-all;
+}
+
+.connectedWallet {
+  font-family: monospace;
+  font-weight: 500;
+}
+
+.username.page .usernameInput {
+  background-color: rgba(255, 255, 255, 0.1);
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-radius: 8px;
+  color: #fff;
+  font-size: 150%;
+  outline: none;
+  padding: 15px 20px;
+  text-align: center;
+  width: 300px;
+  transition: all 0.3s ease;
+}
+
+.username.page .usernameInput:focus {
+  border-color: rgba(255, 255, 255, 0.6);
+  background-color: rgba(255, 255, 255, 0.15);
+}
+
+.username.page .usernameInput::placeholder {
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.usernameNote {
+  margin-top: 15px;
+}
+
+.usernameNote small {
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 80%;
 }
 
 /* Chat page */
 
 .chat.page {
   display: none;
+}
+
+.userInfo {
+  background: rgba(0, 0, 0, 0.05);
+  padding: 10px 20px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+  font-size: 90%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.userInfo .walletAddress {
+  font-family: monospace;
+  color: #666;
+  font-size: 85%;
+}
+
+.userInfo .username {
+  color: #333;
+  font-weight: 500;
 }
 
 /* Font */
@@ -146,4 +269,26 @@ ul {
   position: absolute;
   right: 0;
   width: 100%;
+}
+
+/* Responsive Design */
+
+@media (max-width: 600px) {
+  .wallet.page .form {
+    padding: 0 20px;
+  }
+  
+  .connectWallet {
+    min-width: 250px;
+    font-size: 100%;
+  }
+  
+  .username.page .usernameInput {
+    width: 90%;
+    max-width: 300px;
+  }
+  
+  .walletInfo {
+    padding: 0 20px;
+  }
 }
