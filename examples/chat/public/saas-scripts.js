@@ -232,3 +232,84 @@ document.addEventListener('click', function(e) {
     trackEvent('code_copied');
   }
 }); 
+
+// Handle widget expansion messages from iframe
+window.addEventListener('message', function(event) {
+  if (event.data.type === 'widget_expanded') {
+    const chatWidget = document.getElementById('chat-widget');
+    const chatButton = document.getElementById('chat-widget-button');
+    const iframe = chatWidget.querySelector('iframe');
+    
+    console.log('Widget expansion message received:', event.data.expanded);
+    
+    if (event.data.expanded) {
+      // Expand the widget - make it stick to the right side of the screen
+      chatWidget.style.position = 'fixed';
+      chatWidget.style.top = '0';
+      chatWidget.style.right = '0';
+      chatWidget.style.width = '400px';
+      chatWidget.style.height = '100vh';
+      chatWidget.style.zIndex = '9999';
+      chatWidget.style.borderRadius = '0';
+      chatWidget.style.border = 'none';
+      chatWidget.style.boxShadow = '-5px 0 20px rgba(0,0,0,0.3)';
+      
+      // Hide the chat button when expanded
+      if (chatButton) {
+        chatButton.style.display = 'none';
+      }
+    } else {
+      // Return to normal chat widget size
+      chatWidget.style.position = '';
+      chatWidget.style.top = '';
+      chatWidget.style.right = '';
+      chatWidget.style.width = '';
+      chatWidget.style.height = '';
+      chatWidget.style.zIndex = '';
+      chatWidget.style.borderRadius = '';
+      chatWidget.style.border = '';
+      chatWidget.style.boxShadow = '';
+      
+      // Show the chat button again
+      if (chatButton) {
+        chatButton.style.display = '';
+        console.log('Chat button restored');
+      }
+    }
+  }
+});
+
+// Backup: Ensure chat button is always accessible
+// Check every 5 seconds if widget is not expanded but button is hidden
+setInterval(() => {
+  const chatWidget = document.getElementById('chat-widget');
+  const chatButton = document.getElementById('chat-widget-button');
+  
+  if (chatWidget && chatButton) {
+    const isWidgetExpanded = chatWidget.style.position === 'fixed' && 
+                            chatWidget.style.height === '100vh';
+    const isButtonHidden = chatButton.style.display === 'none';
+    
+    // If widget is not expanded but button is hidden, show the button
+    if (!isWidgetExpanded && isButtonHidden) {
+      console.log('Backup: Restoring hidden chat button');
+      chatButton.style.display = '';
+    }
+  }
+}, 5000);
+
+// Additional safeguard: Restore button on page focus
+window.addEventListener('focus', () => {
+  const chatWidget = document.getElementById('chat-widget');
+  const chatButton = document.getElementById('chat-widget-button');
+  
+  if (chatWidget && chatButton) {
+    const isWidgetExpanded = chatWidget.style.position === 'fixed' && 
+                            chatWidget.style.height === '100vh';
+    
+    if (!isWidgetExpanded && chatButton.style.display === 'none') {
+      console.log('Page focus: Restoring chat button');
+      chatButton.style.display = '';
+    }
+  }
+});

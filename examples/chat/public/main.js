@@ -12,6 +12,19 @@ $(function() {
   const $usernameInput = $('.usernameInput');
   const $messages = $('.messages');
   const $inputMessage = $('.inputMessage');
+  
+  // UI enhancement variables
+  let soundEnabled = true;
+  let connectionState = 'disconnected'; // connected, connecting, disconnected
+  
+  // Unread message tracking
+  let lastSeenMessageId = null;
+  let unreadCount = 0;
+  let isScrolledToBottom = true;
+  let messageIdCounter = 0;
+  
+  // Initialize activeSockets to prevent errors
+  window.activeSockets = {};
 
   // Pages
   const $walletPage = $('.wallet.page');
@@ -71,11 +84,13 @@ $(function() {
   const connectWallet = async (walletType) => {
     try {
       $walletStatus.text('Connecting...');
+      updateConnectionStatus('connecting');
       
       const walletProvider = getWalletProvider(walletType);
       
       if (!walletProvider) {
         $walletStatus.text(`${walletType} wallet not found. Please install the extension.`);
+        updateConnectionStatus('disconnected');
         return;
       }
 
@@ -173,9 +188,24 @@ $(function() {
     log(message);
   }
 
+  // Username validation
+  const validateUsername = (username) => {
+    if (!username) return { valid: false, error: "Username is required" };
+    if (username.length < 4) return { valid: false, error: "Username must be at least 4 characters" };
+    if (username.length > 10) return { valid: false, error: "Username must be 10 characters or less" };
+    if (!/^[a-zA-Z0-9_-]+$/.test(username)) return { valid: false, error: "Username can only contain letters, numbers, _ and -" };
+    return { valid: true };
+  }
+
   // Sets the client's username
   const setUsername = () => {
     const inputUsername = cleanInput($usernameInput.val().trim());
+    const validation = validateUsername(inputUsername);
+
+    if (!validation.valid) {
+      $('.usernameNote small').text(validation.error).css('color', '#ff6b6b');
+      return;
+    }
 
     if (inputUsername && walletAddress) {
       username = inputUsername;
@@ -199,6 +229,153 @@ $(function() {
     $currentInput = $usernameInput.focus();
   }
 
+  // Check if message is an admin command
+  const isAdminCommand = (message) => {
+    return message.startsWith('/') && window.isCurrentUserAdmin;
+  }
+
+  // Show admin action confirmation modal
+  const showAdminActionModal = (action, targetUser) => {
+    // Check if user exists (more robust checking)
+    const userExists = Array.from(activeUsers.entries()).some(([userName]) => 
+      userName.toLowerCase() === targetUser.toLowerCase()
+    );
+
+    // For unmute/unban, we allow users not in current session
+    if (!userExists && (action === 'mute' || action === 'ban')) {
+      const availableUsers = Array.from(activeUsers.keys()).join(', ');
+      if (availableUsers) {
+        log(`User "${targetUser}" not found. Available users: ${availableUsers}`);
+      } else {
+        log(`User "${targetUser}" not found. No other users are currently online.`);
+      }
+      return;
+    }
+
+    const actionText = {
+      'mute': 'mute',
+      'unmute': 'unmute', 
+      'ban': 'ban',
+      'unban': 'unban'
+    }[action];
+
+    const $modal = $(`
+      <div class="admin-modal-overlay">
+        <div class="admin-modal">
+          <div class="admin-modal-header">
+            <h3>Admin Action: ${actionText.toUpperCase()}</h3>
+          </div>
+          <div class="admin-modal-body">
+            <p>Are you sure you want to <strong>${actionText}</strong> user <strong>${targetUser}</strong>?</p>
+            ${action === 'mute' || action === 'ban' ? `
+              <div class="admin-modal-options">
+                <label>Reason (optional):</label>
+                <input type="text" class="admin-reason-input" placeholder="Enter reason for ${action}" maxlength="100">
+              </div>
+            ` : ''}
+          </div>
+          <div class="admin-modal-actions">
+            <button class="admin-confirm-btn">${actionText.toUpperCase()}</button>
+            <button class="admin-cancel-btn">Cancel</button>
+          </div>
+        </div>
+      </div>
+    `);
+
+    // Add event handlers
+    $modal.find('.admin-confirm-btn').on('click', () => {
+      const reason = $modal.find('.admin-reason-input').val() || '';
+      executeAdminAction(action, targetUser, reason);
+      $modal.remove();
+    });
+
+    $modal.find('.admin-cancel-btn, .admin-modal-overlay').on('click', (e) => {
+      if (e.target === e.currentTarget) {
+        $modal.remove();
+      }
+    });
+
+    // Prevent input events from bubbling to the main chat
+    $modal.find('.admin-reason-input').on('keydown keyup input', (e) => {
+      e.stopPropagation();
+      
+      // Allow Enter to confirm the action
+      if (e.type === 'keydown' && e.which === 13) {
+        e.preventDefault();
+        $modal.find('.admin-confirm-btn').click();
+      }
+      
+      // Allow Escape to cancel
+      if (e.type === 'keydown' && e.which === 27) {
+        e.preventDefault();
+        $modal.remove();
+      }
+    });
+
+    // Add to page and focus the reason input
+    $('body').append($modal);
+    
+    // Focus the reason input if it exists
+    setTimeout(() => {
+      $modal.find('.admin-reason-input').focus();
+    }, 100);
+  }
+
+  // Execute the actual admin action
+  const executeAdminAction = (action, targetUser, reason = '') => {
+    socket.emit('admin action', {
+      action: action,
+      targetUser: targetUser,
+      reason: reason
+    });
+    
+    const reasonText = reason ? ` (Reason: ${reason})` : '';
+    log(`Admin action: ${action} ${targetUser}${reasonText}`);
+  }
+
+  // Parse and execute admin commands
+  const executeAdminCommand = (message) => {
+    const parts = message.split(' ');
+    const command = parts[0].toLowerCase();
+    const target = parts[1];
+
+    switch (command) {
+      case '/mute':
+        if (target) {
+          showAdminActionModal('mute', target);
+        } else {
+          log('Usage: /mute <username>');
+        }
+        break;
+      case '/unmute':
+        if (target) {
+          showAdminActionModal('unmute', target);
+        } else {
+          log('Usage: /unmute <username>');
+        }
+        break;
+      case '/unban':
+        if (target) {
+          showAdminActionModal('unban', target);
+        } else {
+          log('Usage: /unban <username>');
+        }
+        break;
+      case '/ban':
+        if (target) {
+          showAdminActionModal('ban', target);
+        } else {
+          log('Usage: /ban <username>');
+        }
+        break;
+      case '/help':
+        log('Admin commands: /mute <user>, /unmute <user>, /ban <user>, /unban <user>');
+        break;
+      default:
+        log(`Unknown command: ${command}. Type /help for available commands.`);
+    }
+  }
+
   // Sends a chat message
   const sendMessage = () => {
     let message = $inputMessage.val();
@@ -206,13 +383,45 @@ $(function() {
     if (message && connected) {
       $inputMessage.val('');
       
+      // Debug command to check admin status
+      if (message === '/debug') {
+        console.log('=== ADMIN DEBUG INFO ===');
+        console.log('Current user:', username);
+        console.log('Current user is admin:', window.isCurrentUserAdmin);
+        console.log('activeSockets:', window.activeSockets);
+        console.log('activeUsers:', Array.from(activeUsers.entries()));
+        return;
+      }
+      
+      // Force test admin message
+      if (message === '/testadmin') {
+        console.log('Creating forced admin message for testing...');
+        addChatMessage({
+          username: username + '_ADMIN_TEST',
+          message: 'This is a forced admin message test!',
+          walletAddress: walletAddress,
+          isAdmin: true,
+          messageId: Date.now()
+        });
+        return;
+      }
+      
+      // Check if it's an admin command
+      if (isAdminCommand(message)) {
+        executeAdminCommand(message);
+        return;
+      }
+      
       // Prepare message data
       const messageData = {
         username, 
         message, 
         walletAddress,
-        replyTo: replyingTo
+        replyTo: replyingTo,
+        isAdmin: window.isCurrentUserAdmin  // Add current user's admin status
       };
+      
+      console.log('SENDING MESSAGE - data being sent:', messageData);
       
       addChatMessage(messageData);
       socket.emit('new message', {
@@ -278,25 +487,42 @@ $(function() {
   };
 
   const showMentionAutocomplete = (query, cursorPos) => {
+    // Show autocomplete even for empty queries (when @ is typed)
+    if (activeUsers.size === 0) {
+      hideMentionAutocomplete();
+      return;
+    }
+
     const $dropdown = $('.mention-autocomplete').length ? 
       $('.mention-autocomplete') : createAutocompleteDropdown();
 
-    // Filter users based on query with smart matching
-    const filteredUsers = Array.from(activeUsers.entries())
-      .filter(([userName, walletAddr]) => 
-        userName.toLowerCase().includes(query.toLowerCase()) && 
-        userName !== username // Don't show current user
-      )
-      .sort(([userA], [userB]) => {
-        // Prioritize exact starts with matches
-        const aStartsWith = userA.toLowerCase().startsWith(query.toLowerCase());
-        const bStartsWith = userB.toLowerCase().startsWith(query.toLowerCase());
-        if (aStartsWith && !bStartsWith) return -1;
-        if (bStartsWith && !aStartsWith) return 1;
-        // Then sort alphabetically
-        return userA.localeCompare(userB);
+    // Enhanced filtering with progressive narrowing
+    const queryLower = query.toLowerCase();
+    let filteredUsers = Array.from(activeUsers.entries())
+      .filter(([userName, walletAddr]) => userName !== username) // Don't show current user
+      .map(([userName, walletAddr]) => {
+        const userLower = userName.toLowerCase();
+        let score = 0;
+        
+        // For empty query, show all users
+        if (query.length === 0) {
+          score = 100 + (10 - userName.length);
+        }
+        // Exact starts with = highest priority
+        else if (userLower.startsWith(queryLower)) {
+          score = 1000 + (10 - userName.length); // Shorter names get slightly higher score
+        }
+        // Contains query = medium priority 
+        else if (userLower.includes(queryLower)) {
+          score = 500 + (10 - userName.length);
+        }
+        
+        return { userName, walletAddr, score };
       })
-      .slice(0, 5); // Limit to 5 results max
+      .filter(user => user.score > 0) // Only include matches
+      .sort((a, b) => b.score - a.score) // Sort by score (highest first)
+      .slice(0, query.length <= 1 ? 4 : 5) // Show fewer results for single chars or empty
+      .map(user => [user.userName, user.walletAddr]); // Convert back to tuple format
 
     if (filteredUsers.length === 0) {
       hideMentionAutocomplete();
@@ -309,13 +535,13 @@ $(function() {
     mentionAutocomplete.query = query;
 
     // Clear and populate dropdown
-    $dropdown.empty();
+    $dropdown.empty().addClass('visible');
     
     filteredUsers.forEach(([userName, walletAddr], index) => {
-      // Check if user is admin
-      const isUserAdmin = Object.values(activeSockets || {}).some(socket => 
-        socket.walletAddress === walletAddr && socket.isAdmin
-      );
+      // Check if user is admin (with safe access)
+      const isUserAdmin = window.activeSockets && window.activeSockets[userName] && window.activeSockets[userName].isAdmin;
+      
+      console.log(`AUTOCOMPLETE DEBUG - User: ${userName}, activeSockets exists: ${!!window.activeSockets}, user in activeSockets: ${!!window.activeSockets?.[userName]}, isAdmin: ${isUserAdmin}`);
 
       const $item = $('<div class="mention-item">')
         .attr('data-index', index)
@@ -339,7 +565,7 @@ $(function() {
 
       $dropdown.append($item);
     });
-
+    
     $dropdown.addClass('visible');
   };
 
@@ -460,24 +686,63 @@ $(function() {
     addMessageElement($el, options);
   }
 
+  // Show welcome message when chat is empty
+  const showWelcomeMessage = () => {
+    if ($('.message:not(.typing)').length === 0) {
+      const $welcome = $(`
+        <div class="welcome-message">
+          <h3>🌟 Welcome to the community!</h3>
+          <p>Connect your wallet to start chatting with verified users</p>
+          <p>All messages are authenticated by wallet signatures</p>
+          <div class="welcome-tips">
+            <span class="tip-badge">💬 Try @mentions</span>
+            <span class="tip-badge">↩️ Click to reply</span>
+            <span class="tip-badge">⭐ Admin features</span>
+          </div>
+        </div>
+      `);
+      $messages.append($welcome);
+    }
+  }
+
+  // Remove welcome message
+  const hideWelcomeMessage = () => {
+    $('.welcome-message').remove();
+  }
+
   // Adds the visual chat message to the message list
   const addChatMessage = (data, options = {}) => {
+    // Check admin status from multiple sources since server might not send it (DO THIS FIRST!)
+    let isMessageFromAdmin = data.isAdmin;
+    if (!isMessageFromAdmin && window.activeSockets && window.activeSockets[data.username]) {
+      isMessageFromAdmin = window.activeSockets[data.username].isAdmin;
+    }
+    
+    console.log(`MESSAGE DEBUG - User: ${data.username}, data.isAdmin: ${data.isAdmin}, activeSockets admin: ${window.activeSockets?.[data.username]?.isAdmin}, final isAdmin: ${isMessageFromAdmin}`);
+    
     const $typingMessages = getTypingMessages(data);
     if ($typingMessages.length !== 0) {
       options.fade = false;
       $typingMessages.remove();
     }
 
-    // Create clickable username that links to Solscan
-    const $usernameDiv = $('<span class="username"/>')
-      .text(data.username)
-      .css('color', getUsernameColor(data.username));
-
-    // Add admin star if user is admin
-    if (data.isAdmin) {
-      const $adminStar = $('<span class="admin-star">★</span>');
-      $usernameDiv.append($adminStar);
+    // Hide welcome message when first real message arrives
+    if (!data.typing) {
+      hideWelcomeMessage();
     }
+
+    // Generate avatar
+    const avatar = generateAvatar(data.walletAddress, data.username);
+
+    // Create username with admin star
+    let usernameText = data.username;
+    if (isMessageFromAdmin) {
+      usernameText += ' ★';
+    }
+
+    const $usernameDiv = $('<span class="username"/>')
+      .text(usernameText)
+      .css('color', getUsernameColor(data.username));
     
     // Make username clickable if wallet address is available
     if (data.walletAddress && !data.typing) {
@@ -490,22 +755,34 @@ $(function() {
         });
     }
 
-    // Process message for @mentions
-    const processedMessage = processMessage(data.message);
+    // Process message for @mentions or typing indicator
+    let messageContent;
+    if (data.typing) {
+      messageContent = `is typing ${createTypingIndicator(data.username)}`;
+    } else {
+      messageContent = processMessage(data.message);
+    }
+
     const $messageBodyDiv = $('<span class="messageBody">')
-      .html(processedMessage);
+      .html(messageContent);
 
     const typingClass = data.typing ? 'typing' : '';
     const replyClass = data.replyTo ? 'reply' : '';
     const mentionedClass = !data.typing && isUserMentioned(data.message, username) ? 'mentioned' : '';
+    const adminClass = isMessageFromAdmin ? 'admin-message' : '';
+    
+    // Assign unique message ID for unread tracking
+    const messageId = data.messageId || (++messageIdCounter);
     
     const $messageDiv = $('<li class="message"/>')
       .data('username', data.username)
       .data('walletAddress', data.walletAddress)
       .data('message', data.message)
-      .data('messageId', data.messageId || Date.now())
-      .attr('data-message-id', data.messageId || Date.now())
-      .addClass(`${typingClass} ${replyClass} ${mentionedClass}`.trim());
+      .data('messageId', messageId)
+      .attr('data-message-id', messageId)
+      .addClass(`${typingClass} ${replyClass} ${mentionedClass} ${adminClass}`.trim());
+    
+    console.log('Final message classes:', $messageDiv.attr('class'));
 
     // Add reply context if this is a reply
     if (data.replyTo && !data.typing) {
@@ -514,7 +791,17 @@ $(function() {
       $messageDiv.append($replyContext);
     }
 
-    $messageDiv.append($usernameDiv, $messageBodyDiv);
+    // Create message with compact structure
+    $messageDiv.html(`
+      <div class="message-header">
+        ${avatar}
+        <span class="username" style="color: ${getUsernameColor(data.username)}">${usernameText}</span>
+        <span class="message-status status-sent">✓</span>
+      </div>
+      <div class="message-content">
+        ${messageContent}
+      </div>
+    `);
 
     // Add click handler for replies (only if not typing message)
     if (!data.typing) {
@@ -567,6 +854,17 @@ $(function() {
     }
 
     addMessageElement($messageDiv, options);
+    
+    // Track unread messages (only for non-typing, non-own messages)
+    if (!data.typing && data.username !== username && data.username) {
+      if (!isScrolledToBottom) {
+        unreadCount++;
+        updateScrollIndicators();
+      } else {
+        // If at bottom, mark as read immediately
+        lastSeenMessageId = messageId;
+      }
+    }
 
     // Check for notifications (mentions when widget might be closed)
     if (!data.typing && isUserMentioned(data.message, username) && data.username !== username) {
@@ -661,8 +959,221 @@ $(function() {
     return COLORS[index];
   }
 
+  // Generate user avatar from wallet address
+  const generateAvatar = (walletAddress, username) => {
+    if (!walletAddress) return '';
+    
+    // Create hash from wallet address for consistent colors
+    let hash = 0;
+    for (let i = 0; i < walletAddress.length; i++) {
+      hash = walletAddress.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    
+    // Generate gradient colors
+    const hue1 = Math.abs(hash) % 360;
+    const hue2 = (hue1 + 60) % 360;
+    const backgroundColor = `linear-gradient(135deg, hsl(${hue1}, 70%, 60%), hsl(${hue2}, 70%, 45%))`;
+    
+    // Get initials from username
+    const initials = username.substring(0, 2).toUpperCase();
+    
+    return `<div class="user-avatar" style="background: ${backgroundColor}">${initials}</div>`;
+  }
+
+  // Enhanced typing indicator
+  const createTypingIndicator = (username) => {
+    return `
+      <div class="typing-dots">
+        <span></span><span></span><span></span>
+      </div>
+    `;
+  }
+
+  // Play notification sound
+  const playNotificationSound = (type = 'message') => {
+    if (!soundEnabled) return;
+    
+    // Create audio context for notification sounds
+    try {
+      const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      const oscillator = audioContext.createOscillator();
+      const gainNode = audioContext.createGain();
+      
+      oscillator.connect(gainNode);
+      gainNode.connect(audioContext.destination);
+      
+      if (type === 'mention') {
+        oscillator.frequency.setValueAtTime(800, audioContext.currentTime);
+        oscillator.frequency.exponentialRampToValueAtTime(1200, audioContext.currentTime + 0.1);
+      } else {
+        oscillator.frequency.setValueAtTime(600, audioContext.currentTime);
+      }
+      
+      gainNode.gain.setValueAtTime(0.1, audioContext.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
+      
+      oscillator.start(audioContext.currentTime);
+      oscillator.stop(audioContext.currentTime + 0.3);
+    } catch (e) {
+      // Fallback for browsers that don't support AudioContext
+      console.log('🔊 Notification sound');
+    }
+  }
+
+  // Check if user is scrolled to bottom of messages
+  const checkScrollPosition = () => {
+    const $messagesContainer = $('.messages');
+    const scrollTop = $messagesContainer.scrollTop();
+    const scrollHeight = $messagesContainer[0].scrollHeight;
+    const clientHeight = $messagesContainer.height();
+    
+    // Consider "bottom" if within 50px of actual bottom
+    const wasScrolledToBottom = isScrolledToBottom;
+    isScrolledToBottom = scrollTop + clientHeight >= scrollHeight - 50;
+    
+    // If we just scrolled to bottom, mark messages as read
+    if (!wasScrolledToBottom && isScrolledToBottom) {
+      markMessagesAsRead();
+    }
+    
+    updateScrollIndicators();
+  }
+
+  // Mark all visible messages as read
+  const markMessagesAsRead = () => {
+    const messages = $('.message:not(.typing)');
+    if (messages.length > 0) {
+      const lastMessage = messages.last();
+      const messageId = lastMessage.data('messageId');
+      if (messageId) {
+        lastSeenMessageId = messageId;
+        unreadCount = 0;
+        updateScrollIndicators();
+      }
+    }
+  }
+
+  // Update scroll indicators (unread badge and scroll to bottom button)
+  const updateScrollIndicators = () => {
+    let $unreadIndicator = $('.unread-indicator');
+    let $scrollToBottom = $('.scroll-to-bottom');
+    
+    // Create indicators if they don't exist
+    if ($unreadIndicator.length === 0) {
+      $unreadIndicator = $(`
+        <div class="unread-indicator hidden">
+          <span class="unread-count">0</span> new messages
+          <button class="jump-to-unread">Jump to unread</button>
+        </div>
+      `);
+      $('.messages').before($unreadIndicator);
+    }
+    
+    if ($scrollToBottom.length === 0) {
+      $scrollToBottom = $(`
+        <button class="scroll-to-bottom hidden" title="Scroll to bottom">
+          ↓
+        </button>
+      `);
+      $('.messages').append($scrollToBottom);
+    }
+    
+    // Update unread indicator
+    if (unreadCount > 0 && !isScrolledToBottom) {
+      $unreadIndicator.removeClass('hidden');
+      $unreadIndicator.find('.unread-count').text(unreadCount);
+    } else {
+      $unreadIndicator.addClass('hidden');
+    }
+    
+    // Update scroll to bottom button
+    if (!isScrolledToBottom) {
+      $scrollToBottom.removeClass('hidden');
+    } else {
+      $scrollToBottom.addClass('hidden');
+    }
+  }
+
+  // Scroll to bottom of messages
+  const scrollToBottom = (smooth = true) => {
+    const $messagesContainer = $('.messages');
+    if (smooth) {
+      $messagesContainer.animate({
+        scrollTop: $messagesContainer[0].scrollHeight
+      }, 300);
+    } else {
+      $messagesContainer.scrollTop($messagesContainer[0].scrollHeight);
+    }
+  }
+
+  // Jump to first unread message
+  const jumpToUnread = () => {
+    const messages = $('.message:not(.typing)');
+    let unreadMessage = null;
+    
+    for (let i = 0; i < messages.length; i++) {
+      const $msg = $(messages[i]);
+      const msgId = $msg.data('messageId');
+      if (msgId && (!lastSeenMessageId || msgId > lastSeenMessageId)) {
+        unreadMessage = $msg;
+        break;
+      }
+    }
+    
+    if (unreadMessage) {
+      const $messagesContainer = $('.messages');
+      const scrollTop = unreadMessage.position().top + $messagesContainer.scrollTop() - 50;
+      $messagesContainer.animate({ scrollTop: scrollTop }, 300);
+    }
+  }
+
+  // Update connection status
+  const updateConnectionStatus = (status) => {
+    connectionState = status;
+    let $statusIndicator = $('.connection-status');
+    
+    if ($statusIndicator.length === 0) {
+      $statusIndicator = $(`
+        <div class="connection-status">
+          <div class="connection-dot"></div>
+          <span class="connection-text">Offline</span>
+        </div>
+      `);
+      // Add to userControls before disconnect button (insert before last element)
+      $('.userControls').children().last().before($statusIndicator);
+    }
+    
+    const $dot = $statusIndicator.find('.connection-dot');
+    const $text = $statusIndicator.find('.connection-text');
+    
+    $dot.removeClass('connected connecting disconnected').addClass(status);
+    
+    switch(status) {
+      case 'connected':
+        $text.text('Online');
+        break;
+      case 'connecting':
+        $text.text('Connecting...');
+        break;
+      case 'disconnected':
+        $text.text('Offline');
+        break;
+    }
+  }
+
   // Keyboard events
   $window.keydown(event => {
+    // Don't interfere if modal is open or if typing in admin modal
+    if ($('.admin-modal-overlay').length > 0) {
+      return;
+    }
+    
+    // Handle Escape key to collapse expanded widget
+    if (event.which === 27 && isExpanded) {
+      toggleWidget(false);
+      return;
+    }
+    
     // Handle mention navigation first if autocomplete is visible
     if (mentionAutocomplete.visible && $currentInput === $inputMessage) {
       if (handleMentionNavigation(event)) {
@@ -687,6 +1198,21 @@ $(function() {
   $inputMessage.on('input', () => {
     updateTyping();
     checkForMentionTrigger();
+  });
+
+  // Real-time username validation
+  $usernameInput.on('input', () => {
+    const inputUsername = cleanInput($usernameInput.val().trim());
+    const validation = validateUsername(inputUsername);
+    const $note = $('.usernameNote small');
+    
+    if (inputUsername.length === 0) {
+      $note.text('This nickname will be permanently linked to your wallet address').css('color', 'rgba(255, 255, 255, 0.7)');
+    } else if (!validation.valid) {
+      $note.text(validation.error).css('color', '#ff6b6b');
+    } else {
+      $note.text('✓ Username is valid').css('color', '#10b981');
+    }
   });
 
   // Handle clicks to position cursor and update mention autocomplete
@@ -732,6 +1258,21 @@ $(function() {
   socket.on('login', (data) => {
     connected = true;
     window.isCurrentUserAdmin = data.isAdmin || false;
+    updateConnectionStatus('connected');
+    
+    // Add ourselves to active users
+    if (username && walletAddress) {
+      activeUsers.set(username, walletAddress);
+      console.log(`Added self: ${username}, activeUsers now has:`, Array.from(activeUsers.keys()));
+      
+      // IMPORTANT: Add current user to activeSockets for admin detection in autocomplete
+      if (!window.activeSockets) window.activeSockets = {};
+      window.activeSockets[username] = { 
+        walletAddress: walletAddress, 
+        isAdmin: data.isAdmin 
+      };
+      console.log(`Added self to activeSockets: ${username}, isAdmin: ${data.isAdmin}`);
+    }
     
     if (data.isAdmin) {
       log('★ You have admin privileges');
@@ -747,10 +1288,18 @@ $(function() {
     }
     
     addParticipantsMessage(data);
+    hideWelcomeMessage();
   });
 
   socket.on('new message', (data) => {
     addChatMessage(data);
+    
+    // Play notification sounds
+    if (isUserMentioned(data.message, username)) {
+      playNotificationSound('mention');
+    } else {
+      playNotificationSound('message');
+    }
   });
 
   socket.on('user joined', (data) => {
@@ -761,6 +1310,7 @@ $(function() {
     // Add to active users for tagging
     if (data.walletAddress) {
       activeUsers.set(data.username, data.walletAddress);
+      console.log(`Added user: ${data.username}, activeUsers now has:`, Array.from(activeUsers.keys()));
     }
     
     // Store socket info for admin checking in autocomplete
@@ -769,6 +1319,8 @@ $(function() {
       walletAddress: data.walletAddress, 
       isAdmin: data.isAdmin 
     };
+    
+    console.log(`USER JOINED DEBUG - ${data.username}, isAdmin: ${data.isAdmin}, activeSockets now:`, window.activeSockets);
     
     // Update user count in parent window
     if (window.parent !== window) {
@@ -836,6 +1388,7 @@ $(function() {
 
   socket.io.on('reconnect', () => {
     log('you have been reconnected');
+    updateConnectionStatus('connected');
     if (username && walletAddress) {
       // On reconnect, we need to re-authenticate
       log('Reconnecting... please reconnect your wallet');
@@ -845,6 +1398,12 @@ $(function() {
 
   socket.io.on('reconnect_error', () => {
     log('attempt to reconnect has failed');
+    updateConnectionStatus('disconnected');
+  });
+
+  socket.io.on('disconnect', () => {
+    updateConnectionStatus('disconnected');
+    showWelcomeMessage();
   });
 
   // Admin event handlers
@@ -873,11 +1432,102 @@ $(function() {
     }
   });
 
-  // Hide mention autocomplete when clicking outside
+  // Handle clicks outside for various features
   $(document).on('click', (e) => {
+    // Hide mention autocomplete when clicking outside input
     if (!$(e.target).closest('.input-section').length) {
       hideMentionAutocomplete();
     }
+    
+    // Handle clicking outside expanded widget
+    if (isExpanded) {
+      // If click is outside the widget area when expanded, collapse it
+      const clickedElement = $(e.target);
+      const isInsideWidget = clickedElement.closest('.chat').length > 0 || 
+                            clickedElement.closest('.userInfo').length > 0 ||
+                            clickedElement.closest('.input-section').length > 0 ||
+                            clickedElement.closest('.messages').length > 0;
+      
+      if (!isInsideWidget) {
+        toggleWidget(false);
+      }
+    }
   });
+
+  // Initialize UI elements (after all functions are defined)
+  showWelcomeMessage();
+  updateConnectionStatus('disconnected');
+  
+  // Set up scroll tracking for unread messages
+  $('.messages').on('scroll', checkScrollPosition);
+  
+  // Set up click handlers for scroll indicators (delegated since they're created dynamically)
+  $(document).on('click', '.jump-to-unread', jumpToUnread);
+  $(document).on('click', '.scroll-to-bottom', () => scrollToBottom(true));
+  
+  // Initial scroll position check
+  setTimeout(checkScrollPosition, 100);
+  
+
+
+  
+  // Add expand button first
+  let isExpanded = false;
+  const $expandButton = $(`
+    <div class="expand-button" title="Expand chat">
+      ⤢
+    </div>
+  `);
+  
+  // Function to properly expand/collapse widget
+  const toggleWidget = (expand) => {
+    isExpanded = expand;
+    
+    if (isExpanded) {
+      // Expand to full height, stick to right side
+      $('body').addClass('widget-expanded');
+      $expandButton.text('⤡').attr('title', 'Minimize chat');
+      
+      // Notify parent window about expansion (if in iframe)
+      if (window.parent !== window) {
+        window.parent.postMessage({
+          type: 'widget_expanded',
+          expanded: true
+        }, '*');
+      }
+    } else {
+      // Return to normal size
+      $('body').removeClass('widget-expanded');
+      $expandButton.text('⤢').attr('title', 'Expand chat');
+      
+      // Notify parent window about collapse (if in iframe)
+      if (window.parent !== window) {
+        window.parent.postMessage({
+          type: 'widget_expanded',
+          expanded: false
+        }, '*');
+      }
+    }
+  };
+
+  $expandButton.on('click', () => {
+    toggleWidget(!isExpanded);
+  });
+  
+  // Add sound toggle
+  const $soundToggle = $(`
+    <div class="sound-toggle" title="Toggle notification sounds">
+      🔊
+    </div>
+  `);
+  $soundToggle.on('click', () => {
+    soundEnabled = !soundEnabled;
+    $soundToggle.text(soundEnabled ? '🔊' : '🔇');
+    $soundToggle.toggleClass('muted', !soundEnabled);
+  });
+  
+  // Add to userControls in proper order: expand, sound, connection status will be added by updateConnectionStatus, then disconnect is already in HTML
+  $('.userControls').prepend($expandButton);
+  $('.userControls').append($soundToggle);
 
 });
