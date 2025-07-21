@@ -495,6 +495,7 @@ $(function() {
       .data('walletAddress', data.walletAddress)
       .data('message', data.message)
       .data('messageId', data.messageId || Date.now())
+      .attr('data-message-id', data.messageId || Date.now())
       .addClass(`${typingClass} ${replyClass} ${mentionedClass}`.trim());
 
     // Add reply context if this is a reply

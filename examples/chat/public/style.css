@@ -10,14 +10,7 @@ html {
 }
 
 html, input {
-  font-family:
-    "HelveticaNeue-Light",
-    "Helvetica Neue Light",
-    "Helvetica Neue",
-    Helvetica,
-    Arial,
-    "Lucida Grande",
-    sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, "Inter", "Helvetica Neue", sans-serif;
 }
 
 html, body {
@@ -38,6 +31,7 @@ ul {
   margin: 0;
   padding: 0;
   width: 100%;
+  background: #111827;
 }
 
 .page {
@@ -45,6 +39,7 @@ ul {
   position: absolute;
   width: 100%;
   display: none;
+  background: #111827;
 }
 
 /* Wallet Connection Page */
@@ -244,6 +239,7 @@ ul {
 
 .messages {
   font-size: 150%;
+  background: #111827;
 }
 
 .inputMessage {
@@ -251,7 +247,7 @@ ul {
 }
 
 .log {
-  color: gray;
+  color: #d1d5db;
   font-size: 70%;
   margin: 5px;
   text-align: center;
@@ -275,14 +271,25 @@ ul {
 }
 
 .message.typing .messageBody {
-  color: gray;
+  color: #9ca3af;
 }
 
 .username {
-  font-weight: 700;
+  font-weight: 600;
   overflow: hidden;
   padding-right: 15px;
   text-align: right;
+  color: #f3f4f6;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.admin-star {
+  color: #fbbf24;
+  font-size: 0.9rem;
+  font-weight: bold;
 }
 
 .clickable-username {
@@ -396,13 +403,13 @@ ul {
 
 .mention-username {
   font-weight: 600;
-  color: #e2e8f0;
+  color: #f3f4f6;
 }
 
 .mention-wallet {
-  font-family: monospace;
+  font-family: "SF Mono", Monaco, "Cascadia Code", "Roboto Mono", Consolas, monospace;
   font-size: 0.75rem;
-  color: #9ca3af;
+  color: #d1d5db;
   overflow: hidden;
   text-overflow: ellipsis;
 }
@@ -442,7 +449,9 @@ ul {
 /* Input */
 
 .inputMessage {
-  border: 10px solid #000;
+  border: 10px solid #374151;
+  background: #4b5563;
+  color: #f1f5f9;
   bottom: 0;
   height: 60px;
   left: 0;
@@ -451,6 +460,10 @@ ul {
   position: absolute;
   right: 0;
   width: 100%;
+}
+
+.inputMessage::placeholder {
+  color: #d1d5db;
 }
 
 /* Responsive Design */
