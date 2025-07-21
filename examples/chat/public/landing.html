@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Solana Chat Widget Demo</title>
+  <link rel="stylesheet" href="landing-style.css">
+</head>
+<body>
+  <!-- Main Landing Page -->
+  <div class="landing-container">
+    <header class="hero-section">
+      <div class="hero-content">
+        <h1>🚀 Solana Chat Widget</h1>
+        <p class="hero-subtitle">Experience Web3 authentication with our Solana wallet-powered chat system</p>
+        <div class="features">
+          <div class="feature">
+            <span class="feature-icon">🔐</span>
+            <h3>Wallet Authentication</h3>
+            <p>Connect with Phantom, Solflare, or Backpack wallet</p>
+          </div>
+          <div class="feature">
+            <span class="feature-icon">💬</span>
+            <h3>Real-time Chat</h3>
+            <p>Instant messaging with signature verification</p>
+          </div>
+          <div class="feature">
+            <span class="feature-icon">🎨</span>
+            <h3>Modern UI</h3>
+            <p>Clean, responsive widget design</p>
+          </div>
+        </div>
+        <div class="cta-section">
+          <p class="cta-text">Click the chat icon to get started! →</p>
+        </div>
+      </div>
+    </header>
+  </div>
+
+  <!-- Chat Widget -->
+  <div id="chatWidget" class="chat-widget hidden">
+    <div class="widget-header">
+      <span class="widget-title">💬 Solana Chat</span>
+      <button id="closeChat" class="close-btn">×</button>
+    </div>
+    <div class="widget-content">
+      <iframe id="chatFrame" src="widget.html" frameborder="0"></iframe>
+    </div>
+  </div>
+
+  <!-- Floating Chat Button -->
+  <div id="chatButton" class="chat-button">
+    <div class="chat-icon">💬</div>
+    <div class="pulse"></div>
+  </div>
+
+  <script src="landing.js"></script>
+</body>
+</html> 

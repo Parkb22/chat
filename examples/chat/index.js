@@ -17,6 +17,11 @@ server.listen(port, () => {
 // Routing
 app.use(express.static(path.join(__dirname, 'public')));
 
+// Serve landing page as the default
+app.get('/', (req, res) => {
+  res.redirect('/landing.html');
+});
+
 // Chatroom with Solana wallet authentication
 
 let numUsers = 0;

@@ -1,7 +1,7 @@
 
-# Socket.IO Chat with Solana Wallet Authentication
+# Socket.IO Chat Widget with Solana Wallet Authentication
 
-A chat application built with Socket.IO that requires Solana wallet authentication to join the conversation.
+A modern chat widget built with Socket.IO that requires Solana wallet authentication. Features a beautiful landing page with a floating chat button that opens a popup chat interface.
 
 ## How to use
 
@@ -10,7 +10,7 @@ $ npm install
 $ npm start
 ```
 
-And point your browser to `http://localhost:3001` (or your configured port). Optionally, specify a port by supplying the `PORT` env variable.
+And point your browser to `http://localhost:3001` (or your configured port). Click the floating chat button to open the widget! Optionally, specify a port by supplying the `PORT` env variable.
 
 ## Features
 
@@ -26,11 +26,13 @@ And point your browser to `http://localhost:3001` (or your configured port). Opt
 - Notifications when users join or leave the chatroom
 - User info displays wallet address and chosen username
 
-### 🎨 Modern UI
-- Beautiful gradient backgrounds for different pages
-- Responsive design that works on mobile and desktop
-- Smooth transitions and hover effects
-- Clean, modern interface
+### 🎨 Modern UI & Chat Widget
+- Beautiful landing page with feature showcase
+- Floating chat button with pulse animation
+- Popup chat widget optimized for smaller screens
+- Smooth open/close animations and responsive design
+- Beautiful gradient backgrounds for all pages
+- Clean, modern interface with hover effects
 
 ## Supported Wallets
 

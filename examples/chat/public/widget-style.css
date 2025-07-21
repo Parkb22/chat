@@ -1,0 +1,376 @@
+/* Widget-Optimized Styles */
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  font-weight: 300;
+  -webkit-font-smoothing: antialiased;
+}
+
+html, input {
+  font-family:
+    -apple-system, BlinkMacSystemFont,
+    "Segoe UI", Roboto, Oxygen,
+    Ubuntu, Cantarell, sans-serif;
+}
+
+html, body {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+ul {
+  list-style: none;
+  word-wrap: break-word;
+}
+
+/* Pages */
+
+.pages {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  width: 100%;
+}
+
+.page {
+  height: 100%;
+  position: absolute;
+  width: 100%;
+  display: none;
+}
+
+/* Wallet Connection Page (Widget Size) */
+
+.wallet.page {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  display: block;
+}
+
+.wallet.page .form {
+  height: auto;
+  margin-top: 40px;
+  position: relative;
+  text-align: center;
+  top: auto;
+  width: 100%;
+  padding: 20px;
+}
+
+.wallet.page .title {
+  font-size: 1.4rem;
+  color: #fff;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.wallet.page .subtitle {
+  font-size: 0.9rem;
+  color: rgba(255, 255, 255, 0.8);
+  font-weight: 400;
+  margin-bottom: 20px;
+  line-height: 1.4;
+}
+
+.walletButtons {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.connectWallet {
+  background: rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 8px;
+  color: #fff;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  padding: 10px 16px;
+  transition: all 0.2s ease;
+  min-width: 180px;
+  justify-content: center;
+}
+
+.connectWallet:hover {
+  background: rgba(255, 255, 255, 0.25);
+  border-color: rgba(255, 255, 255, 0.5);
+  transform: translateY(-1px);
+}
+
+.connectWallet img {
+  width: 18px;
+  height: 18px;
+}
+
+.connectWallet span {
+  font-size: 16px;
+}
+
+.walletStatus {
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 0.85rem;
+  min-height: 16px;
+}
+
+/* Username Selection Page (Widget Size) */
+
+.username.page {
+  background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+}
+
+.username.page .form {
+  height: auto;
+  margin-top: 40px;
+  position: relative;
+  text-align: center;
+  top: auto;
+  width: 100%;
+  padding: 20px;
+}
+
+.username.page .title {
+  font-size: 1.3rem;
+  color: #fff;
+  font-weight: 600;
+  margin-bottom: 15px;
+}
+
+.walletInfo {
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 0.8rem;
+  margin-bottom: 20px;
+  word-break: break-all;
+  line-height: 1.3;
+}
+
+.connectedWallet {
+  font-family: monospace;
+  font-weight: 600;
+}
+
+.username.page .usernameInput {
+  background-color: rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 6px;
+  color: #fff;
+  font-size: 1rem;
+  outline: none;
+  padding: 12px 16px;
+  text-align: center;
+  width: 240px;
+  transition: all 0.2s ease;
+}
+
+.username.page .usernameInput:focus {
+  border-color: rgba(255, 255, 255, 0.6);
+  background-color: rgba(255, 255, 255, 0.2);
+}
+
+.username.page .usernameInput::placeholder {
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.usernameNote {
+  margin-top: 12px;
+}
+
+.usernameNote small {
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.75rem;
+}
+
+/* Chat page (Widget Size) */
+
+.chat.page {
+  display: none;
+}
+
+.userInfo {
+  background: rgba(0, 0, 0, 0.05);
+  padding: 8px 12px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+  font-size: 0.8rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.userDetails {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.userInfo .walletAddress {
+  font-family: monospace;
+  color: #666;
+  font-size: 0.75rem;
+}
+
+.userInfo .username {
+  color: #333;
+  font-weight: 600;
+  font-size: 0.8rem;
+}
+
+.disconnectBtn {
+  background: linear-gradient(135deg, #ff6b6b, #ee5a52);
+  border: none;
+  border-radius: 4px;
+  color: white;
+  cursor: pointer;
+  font-size: 0.7rem;
+  font-weight: 500;
+  padding: 6px 8px;
+  transition: all 0.2s ease;
+}
+
+.disconnectBtn:hover {
+  background: linear-gradient(135deg, #ff5252, #d32f2f);
+  transform: translateY(-1px);
+}
+
+/* Messages (Widget Size) */
+
+.chatArea {
+  height: 100%;
+  padding-bottom: 50px;
+  display: flex;
+  flex-direction: column;
+}
+
+.messages {
+  flex: 1;
+  margin: 0;
+  overflow-y: auto;
+  padding: 8px 12px 12px 12px;
+  scroll-behavior: smooth;
+}
+
+.message.typing .messageBody {
+  color: gray;
+}
+
+.username {
+  font-weight: 700;
+  font-size: 0.85rem;
+  overflow: hidden;
+  padding-right: 10px;
+  text-align: right;
+}
+
+.messageBody {
+  font-size: 0.9rem;
+  line-height: 1.3;
+}
+
+/* Input (Widget Size) */
+
+.inputMessage {
+  border: none;
+  border-top: 1px solid rgba(0, 0, 0, 0.1);
+  bottom: 0;
+  height: 45px;
+  left: 0;
+  outline: none;
+  padding: 0 12px;
+  position: absolute;
+  right: 0;
+  width: 100%;
+  font-size: 0.9rem;
+  background: white;
+}
+
+/* Log messages (Widget Size) */
+
+.log {
+  color: #999;
+  font-size: 0.7rem;
+  margin: 3px 0;
+  text-align: center;
+  line-height: 1.2;
+}
+
+/* Font adjustments for widget */
+
+.messages {
+  font-size: 0.9rem;
+}
+
+.inputMessage {
+  font-size: 0.9rem;
+}
+
+/* Widget-specific scrollbar */
+
+.messages::-webkit-scrollbar {
+  width: 4px;
+}
+
+.messages::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.messages::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 2px;
+}
+
+.messages::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.3);
+}
+
+/* Mobile responsive adjustments */
+
+@media (max-width: 400px) {
+  .wallet.page .form,
+  .username.page .form {
+    padding: 15px;
+  }
+
+  .wallet.page .title,
+  .username.page .title {
+    font-size: 1.2rem;
+  }
+
+  .connectWallet {
+    font-size: 0.8rem;
+    padding: 8px 12px;
+    min-width: 160px;
+  }
+
+  .username.page .usernameInput {
+    width: 200px;
+    font-size: 0.9rem;
+  }
+
+  .messages {
+    padding: 6px 8px 8px 8px;
+    font-size: 0.85rem;
+  }
+
+  .userInfo {
+    padding: 6px 10px;
+    font-size: 0.75rem;
+  }
+
+  .inputMessage {
+    height: 40px;
+    padding: 0 10px;
+    font-size: 0.85rem;
+  }
+
+  .chatArea {
+    padding-bottom: 45px;
+  }
+} 

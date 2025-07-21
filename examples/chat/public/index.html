@@ -1,63 +1,16 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Socket.IO Chat - Solana Wallet Authentication</title>
-  <link rel="stylesheet" href="style.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Solana Chat Widget Demo</title>
+    <script>
+        // Redirect to landing page
+        window.location.replace('landing.html');
+    </script>
 </head>
 <body>
-  <ul class="pages">
-    <li class="chat page">
-      <div class="chatArea">
-        <div class="userInfo">
-          <div class="userDetails">
-            <span class="walletAddress"></span>
-            <span class="username"></span>
-          </div>
-          <button class="disconnectBtn" title="Disconnect and leave chat">
-            🚪 Disconnect
-          </button>
-        </div>
-        <ul class="messages"></ul>
-      </div>
-      <input class="inputMessage" placeholder="Type here..."/>
-    </li>
-    <li class="username page">
-      <div class="form">
-        <h3 class="title">Choose your nickname</h3>
-        <p class="walletInfo">Connected wallet: <span class="connectedWallet"></span></p>
-        <input class="usernameInput" type="text" maxlength="14" placeholder="Enter your nickname" />
-        <div class="usernameNote">
-          <small>This nickname will be permanently linked to your wallet address</small>
-        </div>
-      </div>
-    </li>
-    <li class="wallet page">
-      <div class="form">
-        <h3 class="title">Connect Your Solana Wallet</h3>
-        <p class="subtitle">Please connect your Solana wallet to join the chat</p>
-        <div class="walletButtons">
-          <button class="connectWallet" id="phantom">
-            <img src="data:image/svg+xml;base64,PHN2ZyBmaWxsPSJub25lIiBoZWlnaHQ9IjM0IiB3aWR0aD0iMzQiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGxpbmVhckdyYWRpZW50IGlkPSJhIiB4MT0iLjUiIHgyPSIuNSIgeTE9IjAiIHkyPSIxIj48c3RvcCBvZmZzZXQ9IjAiIHN0b3AtY29sb3I9IiM1MzRiYjEiLz48c3RvcCBvZmZzZXQ9IjEiIHN0b3AtY29sb3I9IiM1NTFiZjkiLz48L2xpbmVhckdyYWRpZW50PjxsaW5lYXJHcmFkaWVudCBpZD0iYiIgeDE9Ii41IiB4Mj0iLjUiIHkxPSIwIiB5Mj0iMSI+PHN0b3Agb2Zmc2V0PSIwIiBzdG9wLWNvbG9yPSIjZmZmIi8+PHN0b3Agb2Zmc2V0PSIxIiBzdG9wLWNvbG9yPSIjZmZmIiBzdG9wLW9wYWNpdHk9Ii44MiIvPjwvbGluZWFyR3JhZGllbnQ+PGNpcmNsZSBjeD0iMTciIGN5PSIxNyIgZmlsbD0idXJsKCNhKSIgcj0iMTciLz48cGF0aCBkPSJtMjEuMjc5MSAxMi4zNzQzYy4yOTUxLS40OTQ2LjE4MDMtMS4xMjY3LS4yNTEzLTEuNDY1OGwtLjU3NDgtLjQ1MTljLS4zNzE5LS4yOTI1LS44ODUyLS4yOTA2LTEuMjU0OC4wMDMzLS4zNjk2LjI5MzgtLjg5NzMuMjk5Ni0xLjI3MzMuMDEzNHMtLjg5MDgtLjI2ODgtMS4yODQyLjAwMzRjLS4zOTM0LjI3MjMtLjkyODEuMjk5MS0xLjMyNjMuMDc2LS4zOTgxLS4yMjMxLS45MTYzLS4yMDQtMS4zMDM0LjA0OGwtLjU2MS40NTQyYy0uNDQzMi4zNTgxLS41NTUxLjk5NTItLjI1OTQgMS40NjE1bC0uMTkzNC4xMDQ1LS4xNDM2LS4wMjE2Yy0uMzg1NC0uMDU4LS43MDA1LjI2OTEtLjcwNzguNjYyNmwtLjAzNDcgMS44NzQ5Yy0uMDA0OS4yNjYyLjE5MDguNDc4OS40NDcxLjUwMjguMzE4Ni4wMjk3LjU5NzctLjE5NDMuNjI3Mi0uNTE4Ny4wMjk1LS4zMjQzLS4yMzc0LS42MDY1LS41OTU2LS42MzAyeiIgZmlsbD0idXJsKCNiKSIvPjwvc3ZnPg==" alt="Phantom" />
-            Connect Phantom
-          </button>
-          <button class="connectWallet" id="solflare">
-            <img src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzIiIGhlaWdodD0iMzIiIHZpZXdCb3g9IjAgMCAzMiAzMiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iMTYiIGN5PSIxNiIgcj0iMTYiIGZpbGw9InVybCgjcGFpbnQwX2xpbmVhcl8zODdfMjI0KSIvPgo8ZGVmcz4KPGxpbmVhckdyYWRpZW50IGlkPSJwYWludDBfbGluZWFyXzM4N18yMjQiIHgxPSIxNiIgeTE9IjAiIHgyPSIxNiIgeTI9IjMyIiBncmFkaWVudFVuaXRzPSJ1c2VyU3BhY2VPblVzZSI+CjxzdG9wIHN0b3AtY29sb3I9IiNGRkM5NDciLz4KPHN0b3Agb2Zmc2V0PSIxIiBzdG9wLWNvbG9yPSIjRkZBMzM4Ii8+CjwvbGluZWFyR3JhZGllbnQ+CjwvZGVmcz4KPHN2ZyB3aWR0aD0iMTYiIGhlaWdodD0iMTYiIHZpZXdCb3g9IjAgMCAxNiAxNiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTEyIDRINEMzLjQ0NzcgNCAzIDQuNDQ3NzIgMyA1VjExQzMgMTEuNTUyMyAzLjQ0NzcgMTIgNCAxMkgxMkMxMi41NTIzIDEyIDEzIDExLjU1MjMgMTMgMTFWNUMxMyA0LjQ0NzcyIDEyLjU1MjMgNCAMTIgNFoiIGZpbGw9IndoaXRlIi8+CjxwYXRoIGQ9Ik0xMCA2SDZDNS40NDc3MiA2IDUgNi40NDc3MiA1IDdWOUM1IDkuNTUyMjggNS40NDc3MiAxMCA2IDEwSDEwQzEwLjU1MjMgMTAgMTEgOS41NTIyOCAxMSA5VjdDMTEgNi40NDc3MiAxMC41NTIzIDYgMTAgNloiIGZpbGw9IiNGRkM5NDciLz4KPC9zdmc+Cjwvc3ZnPgo=" alt="Solflare" />
-            Connect Solflare
-          </button>
-          <button class="connectWallet" id="backpack">
-            <span>🎒</span>
-            Connect Backpack
-          </button>
-        </div>
-        <div class="walletStatus"></div>
-      </div>
-    </li>
-  </ul>
-
-  <script src="https://code.jquery.com/jquery-1.10.2.min.js"></script>
-  <script src="https://unpkg.com/@solana/web3.js@latest/lib/index.iife.min.js"></script>
-  <script src="/socket.io/socket.io.js"></script>
-  <script src="/main.js"></script>
+    <p>Redirecting to chat widget demo...</p>
+    <a href="landing.html">Click here if you are not redirected automatically</a>
 </body>
 </html>
