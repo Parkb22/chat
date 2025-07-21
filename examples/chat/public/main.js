@@ -236,21 +236,23 @@ $(function() {
 
   // Show admin action confirmation modal
   const showAdminActionModal = (action, targetUser) => {
-    // Check if user exists (more robust checking)
-    const userExists = Array.from(activeUsers.entries()).some(([userName]) => 
-      userName.toLowerCase() === targetUser.toLowerCase()
+    // Clean the target user (remove @ symbol, trim)
+    const cleanTargetUser = targetUser.replace(/^@/, '').trim();
+    
+    // Check if user exists (case-insensitive)
+    const userEntry = Array.from(activeUsers.entries()).find(([userName]) => 
+      userName.toLowerCase() === cleanTargetUser.toLowerCase()
     );
 
     // For unmute/unban, we allow users not in current session
-    if (!userExists && (action === 'mute' || action === 'ban')) {
-      const availableUsers = Array.from(activeUsers.keys()).join(', ');
-      if (availableUsers) {
-        log(`User "${targetUser}" not found. Available users: ${availableUsers}`);
-      } else {
-        log(`User "${targetUser}" not found. No other users are currently online.`);
-      }
+    if (!userEntry && (action === 'mute' || action === 'ban')) {
+      log(`User "${cleanTargetUser}" not found in current session.`);
       return;
     }
+    
+    // Use the exact username and get wallet address if user exists
+    const actualUsername = userEntry ? userEntry[0] : cleanTargetUser;
+    const walletAddress = userEntry ? userEntry[1] : null;
 
     const actionText = {
       'mute': 'mute',
@@ -266,7 +268,7 @@ $(function() {
             <h3>Admin Action: ${actionText.toUpperCase()}</h3>
           </div>
           <div class="admin-modal-body">
-            <p>Are you sure you want to <strong>${actionText}</strong> user <strong>${targetUser}</strong>?</p>
+            <p>Are you sure you want to <strong>${actionText}</strong> user <strong>${actualUsername}</strong>?</p>
             ${action === 'mute' || action === 'ban' ? `
               <div class="admin-modal-options">
                 <label>Reason (optional):</label>
@@ -285,7 +287,7 @@ $(function() {
     // Add event handlers
     $modal.find('.admin-confirm-btn').on('click', () => {
       const reason = $modal.find('.admin-reason-input').val() || '';
-      executeAdminAction(action, targetUser, reason);
+      executeAdminAction(action, actualUsername, walletAddress, reason);
       $modal.remove();
     });
 
@@ -322,15 +324,52 @@ $(function() {
   }
 
   // Execute the actual admin action
-  const executeAdminAction = (action, targetUser, reason = '') => {
-    socket.emit('admin action', {
-      action: action,
-      targetUser: targetUser,
-      reason: reason
-    });
-    
+  const executeAdminAction = (action, targetUsername, targetWalletAddress, reason = '') => {
     const reasonText = reason ? ` (Reason: ${reason})` : '';
-    log(`Admin action: ${action} ${targetUser}${reasonText}`);
+    
+    // Send the correct socket events that the server expects
+    switch (action) {
+      case 'mute':
+        if (targetWalletAddress) {
+          socket.emit('mute user', targetWalletAddress);
+          log(`✅ Muted user ${targetUsername}${reasonText}`);
+        } else {
+          log(`❌ Cannot mute ${targetUsername}: wallet address not found`);
+        }
+        break;
+        
+      case 'unmute':
+        if (targetWalletAddress) {
+          socket.emit('unmute user', targetWalletAddress);
+          log(`✅ Unmuted user ${targetUsername}${reasonText}`);
+        } else {
+          log(`❌ Cannot unmute ${targetUsername}: wallet address not found`);
+        }
+        break;
+        
+      case 'ban':
+        // Note: Server doesn't have ban functionality yet, using mute as fallback
+        if (targetWalletAddress) {
+          socket.emit('mute user', targetWalletAddress);
+          log(`✅ Banned (muted) user ${targetUsername}${reasonText}`);
+        } else {
+          log(`❌ Cannot ban ${targetUsername}: wallet address not found`);
+        }
+        break;
+        
+      case 'unban':
+        // Note: Server doesn't have unban functionality yet, using unmute as fallback
+        if (targetWalletAddress) {
+          socket.emit('unmute user', targetWalletAddress);
+          log(`✅ Unbanned (unmuted) user ${targetUsername}${reasonText}`);
+        } else {
+          log(`❌ Cannot unban ${targetUsername}: wallet address not found`);
+        }
+        break;
+        
+      default:
+        log(`❌ Unknown admin action: ${action}`);
+    }
   }
 
   // Parse and execute admin commands
@@ -344,32 +383,32 @@ $(function() {
         if (target) {
           showAdminActionModal('mute', target);
         } else {
-          log('Usage: /mute <username>');
+          log('Usage: /mute <username> or /mute @username');
         }
         break;
       case '/unmute':
         if (target) {
           showAdminActionModal('unmute', target);
         } else {
-          log('Usage: /unmute <username>');
+          log('Usage: /unmute <username> or /unmute @username');
         }
         break;
       case '/unban':
         if (target) {
           showAdminActionModal('unban', target);
         } else {
-          log('Usage: /unban <username>');
+          log('Usage: /unban <username> or /unban @username');
         }
         break;
       case '/ban':
         if (target) {
           showAdminActionModal('ban', target);
         } else {
-          log('Usage: /ban <username>');
+          log('Usage: /ban <username> or /ban @username');
         }
         break;
       case '/help':
-        log('Admin commands: /mute <user>, /unmute <user>, /ban <user>, /unban <user>');
+        log('Admin commands: /mute <user>, /unmute <user>, /ban <user>, /unban <user>. You can use @ or just username.');
         break;
       default:
         log(`Unknown command: ${command}. Type /help for available commands.`);
@@ -420,8 +459,6 @@ $(function() {
         replyTo: replyingTo,
         isAdmin: window.isCurrentUserAdmin  // Add current user's admin status
       };
-      
-      console.log('SENDING MESSAGE - data being sent:', messageData);
       
       addChatMessage(messageData);
       socket.emit('new message', {
@@ -541,7 +578,7 @@ $(function() {
       // Check if user is admin (with safe access)
       const isUserAdmin = window.activeSockets && window.activeSockets[userName] && window.activeSockets[userName].isAdmin;
       
-      console.log(`AUTOCOMPLETE DEBUG - User: ${userName}, activeSockets exists: ${!!window.activeSockets}, user in activeSockets: ${!!window.activeSockets?.[userName]}, isAdmin: ${isUserAdmin}`);
+
 
       const $item = $('<div class="mention-item">')
         .attr('data-index', index)
@@ -718,7 +755,7 @@ $(function() {
       isMessageFromAdmin = window.activeSockets[data.username].isAdmin;
     }
     
-    console.log(`MESSAGE DEBUG - User: ${data.username}, data.isAdmin: ${data.isAdmin}, activeSockets admin: ${window.activeSockets?.[data.username]?.isAdmin}, final isAdmin: ${isMessageFromAdmin}`);
+
     
     const $typingMessages = getTypingMessages(data);
     if ($typingMessages.length !== 0) {
@@ -1263,7 +1300,7 @@ $(function() {
     // Add ourselves to active users
     if (username && walletAddress) {
       activeUsers.set(username, walletAddress);
-      console.log(`Added self: ${username}, activeUsers now has:`, Array.from(activeUsers.keys()));
+
       
       // IMPORTANT: Add current user to activeSockets for admin detection in autocomplete
       if (!window.activeSockets) window.activeSockets = {};
@@ -1271,7 +1308,7 @@ $(function() {
         walletAddress: walletAddress, 
         isAdmin: data.isAdmin 
       };
-      console.log(`Added self to activeSockets: ${username}, isAdmin: ${data.isAdmin}`);
+
     }
     
     if (data.isAdmin) {
@@ -1310,7 +1347,7 @@ $(function() {
     // Add to active users for tagging
     if (data.walletAddress) {
       activeUsers.set(data.username, data.walletAddress);
-      console.log(`Added user: ${data.username}, activeUsers now has:`, Array.from(activeUsers.keys()));
+
     }
     
     // Store socket info for admin checking in autocomplete
@@ -1320,7 +1357,7 @@ $(function() {
       isAdmin: data.isAdmin 
     };
     
-    console.log(`USER JOINED DEBUG - ${data.username}, isAdmin: ${data.isAdmin}, activeSockets now:`, window.activeSockets);
+
     
     // Update user count in parent window
     if (window.parent !== window) {
