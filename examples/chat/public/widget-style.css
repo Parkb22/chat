@@ -196,31 +196,33 @@ ul {
 
 .userInfo {
   background: rgba(0, 0, 0, 0.05);
-  padding: 8px 12px;
+  padding: 6px 12px;
   border-bottom: 1px solid rgba(0, 0, 0, 0.1);
-  font-size: 0.8rem;
+  font-size: 0.75rem;
   display: flex;
   justify-content: space-between;
   align-items: center;
   flex-shrink: 0;
+  line-height: 1.2;
 }
 
 .userDetails {
   display: flex;
-  flex-direction: column;
-  gap: 2px;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
 }
 
 .userInfo .walletAddress {
   font-family: monospace;
   color: #666;
-  font-size: 0.75rem;
+  font-size: 0.7rem;
 }
 
 .userInfo .username {
   color: #333;
   font-weight: 600;
-  font-size: 0.8rem;
+  font-size: 0.75rem;
 }
 
 .disconnectBtn {
@@ -229,10 +231,11 @@ ul {
   border-radius: 4px;
   color: white;
   cursor: pointer;
-  font-size: 0.7rem;
+  font-size: 0.65rem;
   font-weight: 500;
-  padding: 6px 8px;
+  padding: 4px 6px;
   transition: all 0.2s ease;
+  white-space: nowrap;
 }
 
 .disconnectBtn:hover {
@@ -247,6 +250,45 @@ ul {
   padding-bottom: 50px;
   display: flex;
   flex-direction: column;
+}
+
+.message {
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  padding: 4px 0;
+  margin: 2px 0;
+  border-radius: 4px;
+}
+
+.message:hover {
+  background: rgba(0, 0, 0, 0.02);
+}
+
+.message.reply {
+  margin-left: 15px;
+  border-left: 3px solid rgba(102, 126, 234, 0.3);
+  padding-left: 8px;
+}
+
+.reply-context {
+  font-size: 0.75rem;
+  color: #999;
+  margin-bottom: 2px;
+  font-style: italic;
+}
+
+.mention {
+  background: rgba(102, 126, 234, 0.15);
+  color: #667eea;
+  padding: 1px 3px;
+  border-radius: 3px;
+  font-weight: 600;
+}
+
+.message.mentioned {
+  background: rgba(102, 126, 234, 0.05);
+  border-left: 3px solid rgba(102, 126, 234, 0.4);
+  padding-left: 8px;
 }
 
 .messages {
@@ -269,23 +311,76 @@ ul {
   text-align: right;
 }
 
+.clickable-username {
+  cursor: pointer;
+  text-decoration: underline;
+  text-decoration-color: transparent;
+  transition: all 0.2s ease;
+}
+
+.clickable-username:hover {
+  text-decoration-color: currentColor;
+  opacity: 0.8;
+  transform: translateY(-1px);
+}
+
 .messageBody {
   font-size: 0.9rem;
   line-height: 1.3;
 }
 
-/* Input (Widget Size) */
+/* Input Section (Widget Size) */
+
+.input-section {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: white;
+  border-top: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.reply-preview {
+  background: rgba(102, 126, 234, 0.1);
+  border-bottom: 1px solid rgba(102, 126, 234, 0.2);
+  padding: 6px 12px;
+  font-size: 0.8rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.reply-preview.hidden {
+  display: none;
+}
+
+.reply-text {
+  color: #667eea;
+}
+
+.reply-username {
+  color: #333;
+}
+
+.cancel-reply {
+  background: none;
+  border: none;
+  color: #999;
+  cursor: pointer;
+  font-size: 1rem;
+  padding: 0 4px;
+  line-height: 1;
+}
+
+.cancel-reply:hover {
+  color: #666;
+}
 
 .inputMessage {
   border: none;
-  border-top: 1px solid rgba(0, 0, 0, 0.1);
-  bottom: 0;
   height: 45px;
-  left: 0;
   outline: none;
   padding: 0 12px;
-  position: absolute;
-  right: 0;
   width: 100%;
   font-size: 0.9rem;
   background: white;
@@ -332,45 +427,58 @@ ul {
 
 /* Mobile responsive adjustments */
 
-@media (max-width: 400px) {
-  .wallet.page .form,
-  .username.page .form {
-    padding: 15px;
-  }
+  @media (max-width: 400px) {
+    .wallet.page .form,
+    .username.page .form {
+      padding: 15px;
+    }
+  
+    .wallet.page .title,
+    .username.page .title {
+      font-size: 1.2rem;
+    }
+  
+    .connectWallet {
+      font-size: 0.8rem;
+      padding: 8px 12px;
+      min-width: 160px;
+    }
+  
+    .username.page .usernameInput {
+      width: 200px;
+      font-size: 0.9rem;
+    }
+  
+    .messages {
+      padding: 6px 8px 8px 8px;
+      font-size: 0.85rem;
+    }
+  
+    .userInfo {
+      padding: 6px 10px;
+      font-size: 0.75rem;
+    }
+  
+    .inputMessage {
+      height: 40px;
+      padding: 0 10px;
+      font-size: 0.85rem;
+    }
+  
+    .chatArea {
+      padding-bottom: 45px;
+    }
 
-  .wallet.page .title,
-  .username.page .title {
-    font-size: 1.2rem;
-  }
+    .reply-preview {
+      padding: 4px 8px;
+      font-size: 0.75rem;
+    }
 
-  .connectWallet {
-    font-size: 0.8rem;
-    padding: 8px 12px;
-    min-width: 160px;
-  }
+    .message.reply {
+      margin-left: 10px;
+    }
 
-  .username.page .usernameInput {
-    width: 200px;
-    font-size: 0.9rem;
-  }
-
-  .messages {
-    padding: 6px 8px 8px 8px;
-    font-size: 0.85rem;
-  }
-
-  .userInfo {
-    padding: 6px 10px;
-    font-size: 0.75rem;
-  }
-
-  .inputMessage {
-    height: 40px;
-    padding: 0 10px;
-    font-size: 0.85rem;
-  }
-
-  .chatArea {
-    padding-bottom: 45px;
-  }
-} 
+    .mention {
+      padding: 0px 2px;
+    }
+  } 

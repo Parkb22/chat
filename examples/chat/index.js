@@ -185,19 +185,44 @@ io.on('connection', (socket) => {
   });
 
   // When the client emits 'new message', this listens and executes
-  socket.on('new message', (data) => {
+  socket.on('new message', (messageData) => {
     if (!socket.username || !socket.walletAddress) {
       socket.emit('error', 'Not authenticated');
       return;
     }
 
-    console.log(`Message from ${socket.username}: ${data}`);
+    const message = typeof messageData === 'string' ? messageData : messageData.message;
+    const replyTo = messageData.replyTo || null;
+
+    console.log(`Message from ${socket.username} (${socket.walletAddress}): ${message}`);
     
-    // We tell the client to execute 'new message'
-    socket.broadcast.emit('new message', {
+    // Check for @mentions in the message
+    const mentionRegex = /@(\w+)/g;
+    const mentions = [];
+    let match;
+    
+    while ((match = mentionRegex.exec(message)) !== null) {
+      mentions.push(match[1]);
+    }
+
+    // Broadcast message with mention data
+    const broadcastData = {
       username: socket.username,
-      message: data
-    });
+      message: message,
+      walletAddress: socket.walletAddress,
+      replyTo: replyTo,
+      mentions: mentions,
+      messageId: Date.now() + Math.random(),
+      timestamp: new Date()
+    };
+
+    // Send to all other users
+    socket.broadcast.emit('new message', broadcastData);
+    
+    // Log mentions for potential future notification system
+    if (mentions.length > 0) {
+      console.log(`User ${socket.username} mentioned: ${mentions.join(', ')}`);
+    }
   });
 
   // When the client emits 'typing', we broadcast it to others
@@ -205,7 +230,8 @@ io.on('connection', (socket) => {
     if (!socket.username) return;
     
     socket.broadcast.emit('typing', {
-      username: socket.username
+      username: socket.username,
+      walletAddress: socket.walletAddress
     });
   });
 
@@ -214,7 +240,8 @@ io.on('connection', (socket) => {
     if (!socket.username) return;
     
     socket.broadcast.emit('stop typing', {
-      username: socket.username
+      username: socket.username,
+      walletAddress: socket.walletAddress
     });
   });
 

@@ -9,38 +9,37 @@
 <body>
   <!-- Main Landing Page -->
   <div class="landing-container">
-    <header class="hero-section">
-      <div class="hero-content">
-        <h1>🚀 Solana Chat Widget</h1>
-        <p class="hero-subtitle">Experience Web3 authentication with our Solana wallet-powered chat system</p>
-        <div class="features">
-          <div class="feature">
-            <span class="feature-icon">🔐</span>
-            <h3>Wallet Authentication</h3>
-            <p>Connect with Phantom, Solflare, or Backpack wallet</p>
-          </div>
-          <div class="feature">
-            <span class="feature-icon">💬</span>
-            <h3>Real-time Chat</h3>
-            <p>Instant messaging with signature verification</p>
-          </div>
-          <div class="feature">
-            <span class="feature-icon">🎨</span>
-            <h3>Modern UI</h3>
-            <p>Clean, responsive widget design</p>
-          </div>
-        </div>
-        <div class="cta-section">
-          <p class="cta-text">Click the chat icon to get started! →</p>
+    <div class="simple-content">
+      <div class="logo-section">
+        <h1>Degen Park Chat</h1>
+        <p class="tagline">Web3 messaging made simple</p>
+      </div>
+      
+      <div class="search-box-mockup">
+        <div class="mock-input">
+          <span class="placeholder-text">Try the chat widget →</span>
         </div>
       </div>
-    </header>
+
+      <div class="footer-links">
+        <a href="#about">About</a>
+        <a href="#features">Features</a>
+        <a href="#privacy">Privacy</a>
+        <a href="#terms">Terms</a>
+      </div>
+    </div>
   </div>
 
   <!-- Chat Widget -->
   <div id="chatWidget" class="chat-widget hidden">
     <div class="widget-header">
-      <span class="widget-title">💬 Solana Chat</span>
+      <div class="widget-title-section">
+        <span class="widget-title">💬 Degen Park Chat</span>
+        <div class="widget-status">
+          <span id="connectionStatus" class="status-indicator offline">●</span>
+          <span id="userCount" class="user-count">0 users</span>
+        </div>
+      </div>
       <button id="closeChat" class="close-btn">×</button>
     </div>
     <div class="widget-content">
@@ -52,6 +51,7 @@
   <div id="chatButton" class="chat-button">
     <div class="chat-icon">💬</div>
     <div class="pulse"></div>
+    <div id="notificationBadge" class="notification-badge hidden">0</div>
   </div>
 
   <script src="landing.js"></script>

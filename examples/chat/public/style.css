@@ -196,7 +196,7 @@ ul {
 
 .userInfo {
   background: rgba(0, 0, 0, 0.05);
-  padding: 10px 20px;
+  padding: 8px 20px;
   border-bottom: 1px solid rgba(0, 0, 0, 0.1);
   font-size: 90%;
   display: flex;
@@ -206,19 +206,21 @@ ul {
 
 .userDetails {
   display: flex;
-  flex-direction: column;
-  gap: 2px;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
 }
 
 .userInfo .walletAddress {
   font-family: monospace;
   color: #666;
-  font-size: 85%;
+  font-size: 80%;
 }
 
 .userInfo .username {
   color: #333;
   font-weight: 500;
+  font-size: 90%;
 }
 
 .disconnectBtn {
@@ -281,6 +283,59 @@ ul {
   overflow: hidden;
   padding-right: 15px;
   text-align: right;
+}
+
+.clickable-username {
+  cursor: pointer;
+  text-decoration: underline;
+  text-decoration-color: transparent;
+  transition: all 0.2s ease;
+}
+
+.clickable-username:hover {
+  text-decoration-color: currentColor;
+  opacity: 0.8;
+  transform: translateY(-1px);
+}
+
+/* Reply and mention styles for full version */
+.message {
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  padding: 4px 0;
+  margin: 2px 0;
+  border-radius: 4px;
+}
+
+.message:hover {
+  background: rgba(0, 0, 0, 0.02);
+}
+
+.message.reply {
+  margin-left: 20px;
+  border-left: 3px solid rgba(102, 126, 234, 0.3);
+  padding-left: 12px;
+}
+
+.reply-context {
+  font-size: 0.8rem;
+  color: #999;
+  margin-bottom: 3px;
+  font-style: italic;
+}
+
+.mention {
+  background: rgba(102, 126, 234, 0.15);
+  color: #667eea;
+  padding: 2px 4px;
+  border-radius: 4px;
+  font-weight: 600;
+}
+
+.message.mentioned {
+  background: rgba(102, 126, 234, 0.05);
+  border-left: 3px solid rgba(102, 126, 234, 0.4);
+  padding-left: 12px;
 }
 
 /* Input */

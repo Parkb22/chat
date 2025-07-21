@@ -3,8 +3,10 @@ document.addEventListener('DOMContentLoaded', function() {
   const chatWidget = document.getElementById('chatWidget');
   const closeChat = document.getElementById('closeChat');
   const chatFrame = document.getElementById('chatFrame');
+  const notificationBadge = document.getElementById('notificationBadge');
 
   let isWidgetOpen = false;
+  let notificationCount = 0;
 
   // Function to open chat widget
   function openChatWidget() {
@@ -13,10 +15,35 @@ document.addEventListener('DOMContentLoaded', function() {
       chatButton.style.display = 'none';
       isWidgetOpen = true;
       
+      // Clear notifications when opening
+      clearNotifications();
+      
       // Add slight delay to ensure iframe loads properly
       setTimeout(() => {
         chatFrame.focus();
       }, 300);
+    }
+  }
+
+  // Notification functions
+  function addNotification() {
+    if (!isWidgetOpen) {
+      notificationCount++;
+      updateNotificationBadge();
+    }
+  }
+
+  function clearNotifications() {
+    notificationCount = 0;
+    updateNotificationBadge();
+  }
+
+  function updateNotificationBadge() {
+    if (notificationCount > 0 && !isWidgetOpen) {
+      notificationBadge.textContent = notificationCount > 9 ? '9+' : notificationCount;
+      notificationBadge.classList.remove('hidden');
+    } else {
+      notificationBadge.classList.add('hidden');
     }
   }
 
@@ -53,18 +80,37 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   });
 
-  // Listen for messages from the iframe (optional - for advanced features)
+  // Listen for messages from the iframe
   window.addEventListener('message', function(event) {
-    // You can add iframe communication here if needed
-    // For example, to detect when user connects wallet or sends messages
     if (event.data && event.data.type) {
+      const connectionStatus = document.getElementById('connectionStatus');
+      const userCount = document.getElementById('userCount');
+      
       switch (event.data.type) {
-        case 'chat_opened':
+        case 'connection_status':
+          if (connectionStatus) {
+            connectionStatus.className = `status-indicator ${event.data.connected ? 'online' : 'offline'}`;
+          }
+          if (userCount && event.data.userCount !== undefined) {
+            const count = event.data.userCount;
+            userCount.textContent = `${count} user${count !== 1 ? 's' : ''}`;
+          }
+          break;
+                 case 'user_count_update':
+           if (userCount && event.data.userCount !== undefined) {
+             const count = event.data.userCount;
+             userCount.textContent = `${count} user${count !== 1 ? 's' : ''}`;
+           }
+           break;
+         case 'user_mentioned':
+           console.log(`You were mentioned by ${event.data.mentionedBy}`);
+           addNotification();
+           break;
+         case 'chat_opened':
           console.log('Chat widget opened');
           break;
         case 'user_connected':
           console.log('User connected to chat');
-          // Could change button appearance to show active state
           break;
         case 'user_disconnected':
           console.log('User disconnected from chat');

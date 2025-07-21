@@ -25,6 +25,8 @@ $(function() {
   const $walletAddress = $('.walletAddress');
   const $usernameDisplay = $('.username');
   const $disconnectBtn = $('.disconnectBtn');
+  const $replyPreview = $('#replyPreview');
+  const $cancelReply = $('.cancel-reply');
 
   const socket = io();
 
@@ -36,6 +38,8 @@ $(function() {
   let typing = false;
   let lastTypingTime;
   let $currentInput = $usernameInput;
+  let replyingTo = null;
+  let activeUsers = new Map(); // Store active users for tagging
 
   // Show wallet page initially
   $walletPage.show();
@@ -144,6 +148,11 @@ $(function() {
     disconnectWallet();
   });
 
+  // Cancel reply button
+  $cancelReply.on('click', () => {
+    clearReply();
+  });
+
   const addParticipantsMessage = (data) => {
     let message = '';
     if (data.numUsers === 1) {
@@ -186,10 +195,57 @@ $(function() {
     message = cleanInput(message);
     if (message && connected) {
       $inputMessage.val('');
-      addChatMessage({ username, message });
-      socket.emit('new message', message);
+      
+      // Prepare message data
+      const messageData = {
+        username, 
+        message, 
+        walletAddress,
+        replyTo: replyingTo
+      };
+      
+      addChatMessage(messageData);
+      socket.emit('new message', {
+        message: message,
+        replyTo: replyingTo
+      });
+      
+      // Clear reply
+      clearReply();
     }
   }
+
+  // Clear reply functionality
+  const clearReply = () => {
+    replyingTo = null;
+    $replyPreview.addClass('hidden');
+  };
+
+  // Set reply target
+  const setReplyTo = (messageData) => {
+    replyingTo = {
+      username: messageData.username,
+      message: messageData.message.substring(0, 50) + (messageData.message.length > 50 ? '...' : ''),
+      walletAddress: messageData.walletAddress
+    };
+    
+    $('.reply-username').text(messageData.username);
+    $replyPreview.removeClass('hidden');
+    $inputMessage.focus();
+  };
+
+  // Detect and highlight @mentions
+  const processMessage = (message) => {
+    return message.replace(/@(\w+)/g, (match, mentionedUser) => {
+      return `<span class="mention">${match}</span>`;
+    });
+  };
+
+  // Check if current user is mentioned
+  const isUserMentioned = (message, currentUsername) => {
+    const mentionRegex = new RegExp(`@${currentUsername}\\b`, 'i');
+    return mentionRegex.test(message);
+  };
 
   // Log a message
   const log = (message, options) => {
@@ -205,19 +261,72 @@ $(function() {
       $typingMessages.remove();
     }
 
+    // Create clickable username that links to Solscan
     const $usernameDiv = $('<span class="username"/>')
       .text(data.username)
       .css('color', getUsernameColor(data.username));
+    
+    // Make username clickable if wallet address is available
+    if (data.walletAddress && !data.typing) {
+      $usernameDiv.addClass('clickable-username')
+        .attr('title', `View ${data.walletAddress} on Solscan`)
+        .on('click', function(e) {
+          e.preventDefault();
+          e.stopPropagation();
+          window.open(`https://solscan.io/account/${data.walletAddress}`, '_blank');
+        });
+    }
+
+    // Process message for @mentions
+    const processedMessage = processMessage(data.message);
     const $messageBodyDiv = $('<span class="messageBody">')
-      .text(data.message);
+      .html(processedMessage);
 
     const typingClass = data.typing ? 'typing' : '';
+    const replyClass = data.replyTo ? 'reply' : '';
+    const mentionedClass = !data.typing && isUserMentioned(data.message, username) ? 'mentioned' : '';
+    
     const $messageDiv = $('<li class="message"/>')
       .data('username', data.username)
-      .addClass(typingClass)
-      .append($usernameDiv, $messageBodyDiv);
+      .data('walletAddress', data.walletAddress)
+      .data('message', data.message)
+      .data('messageId', data.messageId || Date.now())
+      .addClass(`${typingClass} ${replyClass} ${mentionedClass}`.trim());
+
+    // Add reply context if this is a reply
+    if (data.replyTo && !data.typing) {
+      const $replyContext = $('<div class="reply-context">')
+        .text(`↳ Replying to ${data.replyTo.username}: ${data.replyTo.message}`);
+      $messageDiv.append($replyContext);
+    }
+
+    $messageDiv.append($usernameDiv, $messageBodyDiv);
+
+    // Add click handler for replies (only if not typing message)
+    if (!data.typing) {
+      $messageDiv.on('click', function(e) {
+        if (!$(e.target).hasClass('clickable-username')) {
+          setReplyTo({
+            username: data.username,
+            message: data.message,
+            walletAddress: data.walletAddress
+          });
+        }
+      });
+    }
 
     addMessageElement($messageDiv, options);
+
+    // Check for notifications (mentions when widget might be closed)
+    if (!data.typing && isUserMentioned(data.message, username) && data.username !== username) {
+      // Send notification to parent window
+      if (window.parent !== window) {
+        window.parent.postMessage({
+          type: 'user_mentioned',
+          mentionedBy: data.username
+        }, '*');
+      }
+    }
   }
 
   // Adds the visual chat typing message
@@ -358,10 +467,16 @@ $(function() {
 
   socket.on('login', (data) => {
     connected = true;
-    const message = 'Welcome to Socket.IO Chat with Solana Authentication – ';
-    log(message, {
-      prepend: true
-    });
+    
+    // Update connection status in parent window (for widget header)
+    if (window.parent !== window) {
+      window.parent.postMessage({
+        type: 'connection_status',
+        connected: true,
+        userCount: data.numUsers
+      }, '*');
+    }
+    
     addParticipantsMessage(data);
   });
 
@@ -372,12 +487,36 @@ $(function() {
   socket.on('user joined', (data) => {
     log(`${data.username} joined`);
     addParticipantsMessage(data);
+    
+    // Add to active users for tagging
+    if (data.walletAddress) {
+      activeUsers.set(data.username, data.walletAddress);
+    }
+    
+    // Update user count in parent window
+    if (window.parent !== window) {
+      window.parent.postMessage({
+        type: 'user_count_update',
+        userCount: data.numUsers
+      }, '*');
+    }
   });
 
   socket.on('user left', (data) => {
     log(`${data.username} left`);
     addParticipantsMessage(data);
     removeChatTyping(data);
+    
+    // Remove from active users
+    activeUsers.delete(data.username);
+    
+    // Update user count in parent window
+    if (window.parent !== window) {
+      window.parent.postMessage({
+        type: 'user_count_update',
+        userCount: data.numUsers
+      }, '*');
+    }
   });
 
   socket.on('typing', (data) => {
@@ -390,6 +529,16 @@ $(function() {
 
   socket.on('disconnect', () => {
     log('you have been disconnected');
+    connected = false;
+    
+    // Update connection status in parent window
+    if (window.parent !== window) {
+      window.parent.postMessage({
+        type: 'connection_status',
+        connected: false,
+        userCount: 0
+      }, '*');
+    }
   });
 
   socket.on('error', (errorMessage) => {
