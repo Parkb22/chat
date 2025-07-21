@@ -713,7 +713,8 @@ input:checked + .slider:before {
   margin-bottom: 1rem;
 }
 
-.demo-section > p {
+.demo-section > p,
+.demo-subtitle {
   text-align: center;
   font-size: 1.25rem;
   color: #94a3b8;
