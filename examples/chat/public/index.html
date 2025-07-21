@@ -1,16 +1,385 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Degen Park Chat Demo</title>
-    <script>
-        // Redirect to landing page
-        window.location.replace('landing.html');
-    </script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DegenChat - Web3 Messaging for Your Website</title>
+  <meta name="description" content="Add Web3 wallet-authenticated messaging to any website in minutes. Secure, decentralized, and spam-free communication.">
+  <link rel="stylesheet" href="/saas-style.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
-    <p>Redirecting to chat widget demo...</p>
-    <a href="landing.html">Click here if you are not redirected automatically</a>
+  <!-- Navigation -->
+  <nav class="navbar">
+    <div class="container">
+      <div class="nav-brand">
+        <span class="logo">🌟 DegenChat</span>
+      </div>
+      <div class="nav-links">
+        <a href="#features">Features</a>
+        <a href="#pricing">Pricing</a>
+        <a href="#docs">Docs</a>
+        <a href="#demo" class="btn-demo">Live Demo</a>
+        <a href="#get-started" class="btn-primary">Get Started</a>
+      </div>
+      <div class="mobile-menu">
+        <span></span>
+        <span></span>
+        <span></span>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Hero Section -->
+  <section class="hero">
+    <div class="container">
+      <div class="hero-content">
+        <div class="hero-text">
+          <span class="badge">✨ Now Supporting Solana & Ethereum</span>
+          <h1>Web3 Messaging <br>Made Simple</h1>
+          <p>Add wallet-authenticated chat to any website with just one line of code. No spam, no bots, just real users with real wallets.</p>
+          <div class="hero-cta">
+            <a href="#get-started" class="btn-primary-large">Start Free Trial</a>
+            <a href="#demo" class="btn-secondary-large">
+              <span class="play-icon">▶</span>
+              Watch Demo
+            </a>
+          </div>
+          <div class="social-proof">
+            <span>Trusted by 500+ Web3 projects</span>
+            <div class="logos">
+              <div class="logo-placeholder">🦄</div>
+              <div class="logo-placeholder">🚀</div>
+              <div class="logo-placeholder">💎</div>
+              <div class="logo-placeholder">🌟</div>
+            </div>
+          </div>
+        </div>
+        <div class="hero-visual">
+          <div class="widget-preview">
+            <div class="widget-header">
+              <div class="widget-title">💬 Community Chat</div>
+              <div class="widget-status">
+                <div class="status-dot"></div>
+                24 online
+              </div>
+            </div>
+            <div class="widget-messages">
+              <div class="preview-message">
+                <strong>alice.sol ⭐</strong>
+                <span>GM everyone! 🌅</span>
+              </div>
+              <div class="preview-message">
+                <strong>hodler42</strong>
+                <span>Just connected my @Phantom wallet! 🔥</span>
+              </div>
+              <div class="preview-message">
+                <strong>degendev</strong>
+                <span>This integration was so easy to setup</span>
+              </div>
+            </div>
+            <div class="widget-input">
+              <input type="text" placeholder="Connect wallet to chat..." disabled>
+              <button>💳</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Integration Section -->
+  <section class="integration">
+    <div class="container">
+      <h2>One Line of Code</h2>
+      <p>Seriously, that's it. Copy, paste, done.</p>
+      
+      <div class="code-example">
+        <div class="code-header">
+          <div class="code-tabs">
+            <button class="tab active" data-tab="html">HTML</button>
+            <button class="tab" data-tab="react">React</button>
+            <button class="tab" data-tab="wordpress">WordPress</button>
+          </div>
+          <button class="copy-btn" onclick="copyCode()">📋 Copy</button>
+        </div>
+        <div class="code-content">
+          <pre id="html-code" class="code-block active"><code>&lt;script src="https://cdn.degenchat.io/widget.js" 
+        data-client-id="your-client-id"
+        data-theme="dark"&gt;&lt;/script&gt;</code></pre>
+          <pre id="react-code" class="code-block"><code>import { DegenChat } from '@degenchat/react';
+
+&lt;DegenChat 
+  clientId="your-client-id"
+  theme="dark"
+  position="bottom-right" /&gt;</code></pre>
+          <pre id="wordpress-code" class="code-block"><code>[degenchat client_id="your-client-id" theme="dark"]</code></pre>
+        </div>
+      </div>
+
+      <div class="integration-features">
+        <div class="feature-item">
+          <div class="feature-icon">🎨</div>
+          <h3>Fully Customizable</h3>
+          <p>Match your brand with custom themes, colors, and positioning</p>
+        </div>
+        <div class="feature-item">
+          <div class="feature-icon">📱</div>
+          <h3>Mobile Responsive</h3>
+          <p>Perfect experience on desktop, tablet, and mobile devices</p>
+        </div>
+        <div class="feature-item">
+          <div class="feature-icon">⚡</div>
+          <h3>Lightning Fast</h3>
+          <p>Loads in under 50kb, won't slow down your website</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Features Section -->
+  <section id="features" class="features">
+    <div class="container">
+      <h2>Why Choose DegenChat?</h2>
+      <div class="features-grid">
+        <div class="feature-card">
+          <div class="feature-header">
+            <div class="feature-icon">🔐</div>
+            <h3>Wallet Authentication</h3>
+          </div>
+          <p>Only real wallet holders can chat. No fake accounts, no spam, no bots. Support for Phantom, Solflare, MetaMask, and more.</p>
+        </div>
+        
+        <div class="feature-card">
+          <div class="feature-header">
+            <div class="feature-icon">🛡️</div>
+            <h3>Built-in Moderation</h3>
+          </div>
+          <p>Admin controls, message deletion, user muting, and smart rate limiting. Keep your community clean and engaged.</p>
+        </div>
+        
+        <div class="feature-card">
+          <div class="feature-header">
+            <div class="feature-icon">💬</div>
+            <h3>Advanced Chat Features</h3>
+          </div>
+          <p>@mentions, message replies, emoji reactions, typing indicators, and real-time notifications. Discord-level UX.</p>
+        </div>
+        
+        <div class="feature-card">
+          <div class="feature-header">
+            <div class="feature-icon">📊</div>
+            <h3>Analytics Dashboard</h3>
+          </div>
+          <p>Track engagement, user growth, message volume, and community insights. Make data-driven decisions.</p>
+        </div>
+        
+        <div class="feature-card">
+          <div class="feature-header">
+            <div class="feature-icon">🌐</div>
+            <h3>Global CDN</h3>
+          </div>
+          <p>99.9% uptime, lightning-fast delivery worldwide. Your users deserve the best performance.</p>
+        </div>
+        
+        <div class="feature-card">
+          <div class="feature-header">
+            <div class="feature-icon">🔌</div>
+            <h3>Easy Integration</h3>
+          </div>
+          <p>WordPress plugins, Shopify apps, React components, and REST APIs. Fits any tech stack.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Pricing Section -->
+  <section id="pricing" class="pricing">
+    <div class="container">
+      <div class="pricing-header">
+        <h2>Simple, Transparent Pricing</h2>
+        <p>Start free, scale as you grow</p>
+        <div class="billing-toggle">
+          <span>Monthly</span>
+          <label class="switch">
+            <input type="checkbox" id="annual-toggle">
+            <span class="slider"></span>
+          </label>
+          <span>Annual <span class="discount">-20%</span></span>
+        </div>
+      </div>
+      
+      <div class="pricing-cards">
+        <div class="pricing-card">
+          <div class="plan-header">
+            <h3>Starter</h3>
+            <div class="price">
+              <span class="currency">$</span>
+              <span class="amount" data-monthly="0" data-annual="0">0</span>
+              <span class="period">/month</span>
+            </div>
+            <p>Perfect for testing and small communities</p>
+          </div>
+          <ul class="plan-features">
+            <li>✅ Up to 1,000 messages/month</li>
+            <li>✅ 1 chat widget</li>
+            <li>✅ Basic customization</li>
+            <li>✅ Wallet authentication</li>
+            <li>✅ Email support</li>
+            <li>❌ Advanced moderation</li>
+            <li>❌ Analytics dashboard</li>
+            <li>❌ Custom branding</li>
+          </ul>
+          <button class="btn-plan">Start Free</button>
+        </div>
+        
+        <div class="pricing-card popular">
+          <div class="popular-badge">Most Popular</div>
+          <div class="plan-header">
+            <h3>Professional</h3>
+            <div class="price">
+              <span class="currency">$</span>
+              <span class="amount" data-monthly="49" data-annual="39">49</span>
+              <span class="period">/month</span>
+            </div>
+            <p>For growing Web3 projects and communities</p>
+          </div>
+          <ul class="plan-features">
+            <li>✅ Up to 50,000 messages/month</li>
+            <li>✅ 5 chat widgets</li>
+            <li>✅ Full customization</li>
+            <li>✅ Advanced moderation tools</li>
+            <li>✅ Analytics dashboard</li>
+            <li>✅ Priority support</li>
+            <li>✅ Custom branding</li>
+            <li>✅ API access</li>
+          </ul>
+          <button class="btn-plan btn-primary">Start Trial</button>
+        </div>
+        
+        <div class="pricing-card">
+          <div class="plan-header">
+            <h3>Enterprise</h3>
+            <div class="price">
+              <span class="currency">$</span>
+              <span class="amount" data-monthly="199" data-annual="159">199</span>
+              <span class="period">/month</span>
+            </div>
+            <p>For large platforms and white-label solutions</p>
+          </div>
+          <ul class="plan-features">
+            <li>✅ Unlimited messages</li>
+            <li>✅ Unlimited widgets</li>
+            <li>✅ White-label solution</li>
+            <li>✅ Dedicated support</li>
+            <li>✅ Custom integrations</li>
+            <li>✅ SLA guarantee</li>
+            <li>✅ On-premise option</li>
+            <li>✅ Custom development</li>
+          </ul>
+          <button class="btn-plan">Contact Sales</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Demo Section -->
+  <section id="demo" class="demo-section">
+    <div class="container">
+      <h2>Try It Right Now</h2>
+      <p>Connect your wallet and test the chat experience</p>
+      <div class="demo-container">
+        <div class="demo-instructions">
+          <h3>How to test:</h3>
+          <ol>
+            <li>Click the chat button in the bottom right</li>
+            <li>Connect your Solana or Ethereum wallet</li>
+            <li>Choose a username and start chatting</li>
+            <li>Try @mentions, replies, and admin features</li>
+          </ol>
+          <div class="demo-features">
+            <span class="demo-feature">🔐 Wallet Auth</span>
+            <span class="demo-feature">💬 Real-time Chat</span>
+            <span class="demo-feature">🎨 Dark Theme</span>
+            <span class="demo-feature">📱 Mobile Ready</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Get Started Section -->
+  <section id="get-started" class="get-started">
+    <div class="container">
+      <div class="get-started-content">
+        <h2>Ready to Add Web3 Chat to Your Site?</h2>
+        <p>Join hundreds of projects already using DegenChat to build better communities</p>
+        <div class="signup-form">
+          <input type="email" placeholder="Enter your email" class="email-input">
+          <button class="btn-signup">Start Free Trial</button>
+        </div>
+        <div class="signup-benefits">
+          <span>✅ 14-day free trial</span>
+          <span>✅ No credit card required</span>
+          <span>✅ Setup in 5 minutes</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <div class="container">
+      <div class="footer-content">
+        <div class="footer-brand">
+          <span class="logo">🌟 DegenChat</span>
+          <p>Web3 messaging made simple</p>
+        </div>
+        <div class="footer-links">
+          <div class="link-group">
+            <h4>Product</h4>
+            <a href="#features">Features</a>
+            <a href="#pricing">Pricing</a>
+            <a href="#docs">Documentation</a>
+            <a href="#api">API Reference</a>
+          </div>
+          <div class="link-group">
+            <h4>Company</h4>
+            <a href="#about">About</a>
+            <a href="#blog">Blog</a>
+            <a href="#careers">Careers</a>
+            <a href="#contact">Contact</a>
+          </div>
+          <div class="link-group">
+            <h4>Support</h4>
+            <a href="#help">Help Center</a>
+            <a href="#status">Status</a>
+            <a href="#privacy">Privacy</a>
+            <a href="#terms">Terms</a>
+          </div>
+        </div>
+      </div>
+      <div class="footer-bottom">
+        <p>&copy; 2024 DegenChat. All rights reserved.</p>
+        <div class="social-links">
+          <a href="#">🐦</a>
+          <a href="#">💬</a>
+          <a href="#">📧</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Chat Widget (Demo) -->
+  <div id="chat-widget-button" class="chat-button" onclick="toggleChat()">
+    <span class="chat-icon">💬</span>
+    <div class="notification-badge hidden">1</div>
+  </div>
+
+  <div id="chat-widget" class="chat-widget hidden">
+    <iframe src="/widget.html" width="100%" height="100%" frameborder="0"></iframe>
+  </div>
+
+  <script src="/saas-scripts.js"></script>
 </body>
 </html>

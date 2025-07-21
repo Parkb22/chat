@@ -316,10 +316,9 @@ ul {
   padding-right: 10px;
   text-align: right;
   color: #f3f4f6;
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 4px;
+  display: table-cell;
+  width: 120px;
+  vertical-align: top;
 }
 
 .clickable-username {
@@ -340,12 +339,16 @@ ul {
   line-height: 1.4;
   color: #f1f5f9;
   font-weight: 400;
+  display: table-cell;
+  vertical-align: top;
+  word-wrap: break-word;
 }
 
 .admin-star {
   color: #fbbf24;
   font-size: 0.75rem;
   font-weight: bold;
+  display: inline;
 }
 
 /* Admin controls */
