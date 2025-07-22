@@ -97,23 +97,66 @@ $(function() {
         
         // Get signature function from wallet
         const signMessage = async (message) => {
+          console.log('[DegenPark Auth] Signing message:', message);
           const encodedMessage = new TextEncoder().encode(message);
           const signedMessage = await window.solana.signMessage(encodedMessage);
           
+          console.log('[DegenPark Auth] Signature received:', signedMessage);
+          console.log('[DegenPark Auth] Signature type:', typeof signedMessage.signature);
+          console.log('[DegenPark Auth] Signature length:', signedMessage.signature.length);
+          console.log('[DegenPark Auth] bs58 available:', !!window.bs58);
+          
           // Convert signature to base58 format (Solana standard)
-          // DegenPark expects base58 encoded signature
           try {
-            if (window.bs58 && window.bs58.encode) {
-              console.log('[DegenPark Auth] Using bs58 encoding');
-              return window.bs58.encode(signedMessage.signature);
-            } else {
-              console.warn('[DegenPark Auth] bs58 not available, using base64 fallback');
-              return btoa(String.fromCharCode.apply(null, signedMessage.signature));
+            // Ensure signature is a Uint8Array
+            const signature = new Uint8Array(signedMessage.signature);
+            console.log('[DegenPark Auth] Signature as Uint8Array:', signature);
+            
+            let base58Signature;
+            
+            // Try bs58 library first
+            if (window.bs58 && typeof window.bs58.encode === 'function') {
+              console.log('[DegenPark Auth] Using bs58 library');
+              base58Signature = window.bs58.encode(signature);
             }
+            // Manual fallback base58 implementation (simple version)
+            else {
+              console.warn('[DegenPark Auth] bs58 library not available, using manual implementation');
+              // Simple base58 encoding fallback
+              const alphabet = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+              let result = '';
+              let num = BigInt('0x' + Array.from(signature, byte => byte.toString(16).padStart(2, '0')).join(''));
+              
+              while (num > 0) {
+                result = alphabet[num % 58n] + result;
+                num = num / 58n;
+              }
+              
+              // Handle leading zeros
+              for (let i = 0; i < signature.length && signature[i] === 0; i++) {
+                result = alphabet[0] + result;
+              }
+              
+              base58Signature = result;
+            }
+            
+            console.log('[DegenPark Auth] Base58 encoded signature:', base58Signature);
+            console.log('[DegenPark Auth] Base58 signature length:', base58Signature.length);
+            
+            // Validate base58 signature
+            const base58Regex = /^[123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz]+$/;
+            if (!base58Regex.test(base58Signature)) {
+              console.error('[DegenPark Auth] Invalid base58 signature contains invalid characters');
+              console.error('[DegenPark Auth] Signature:', base58Signature);
+              throw new Error('Generated signature contains non-base58 characters');
+            }
+            
+            console.log('[DegenPark Auth] Base58 signature validation passed');
+            return base58Signature;
+            
           } catch (error) {
             console.error('[DegenPark Auth] Signature encoding error:', error);
-            // Fallback to base64
-            return btoa(String.fromCharCode.apply(null, signedMessage.signature));
+            throw new Error('Failed to encode signature: ' + error.message);
           }
         };
 
@@ -2360,4 +2403,26 @@ $(function() {
   // Initialize menu when page loads
   initializeMenu();
 
+});
+
+// Initialize when page loads
+$(document).ready(function() {
+  console.log('[Init] Chat widget loaded');
+  console.log('[Init] jQuery version:', $.fn.jquery);
+  console.log('[Init] bs58 library available:', !!window.bs58);
+  console.log('[Init] Solana wallet API available:', !!window.solana);
+  console.log('[Init] Socket.IO available:', !!window.io);
+  
+  // Test bs58 if available
+  if (window.bs58) {
+    try {
+      const testArray = new Uint8Array([1, 2, 3, 4, 5]);
+      const testResult = window.bs58.encode(testArray);
+      console.log('[Init] bs58 test successful:', testResult);
+    } catch (error) {
+      console.error('[Init] bs58 test failed:', error);
+    }
+  }
+  
+  initializeMenu();
 });
