@@ -4,15 +4,15 @@
 .expand-button {
   background: rgba(99,102,241,0.2);
   border: 1px solid rgba(99,102,241,0.4);
-  border-radius: 3px;
-  padding: 2px 4px;
+  border-radius: 4px;
+  padding: 3px 6px;
   color: #a5b4fc;
-  font-size: 0.6rem;
+  font-size: 0.65rem;
   cursor: pointer;
   transition: all 0.2s ease;
   -webkit-user-select: none;
   user-select: none;
-  height: 20px;
+  height: 22px;
   flex-shrink: 0;
 }
 
@@ -268,15 +268,15 @@ ul {
 
 .userInfo {
   background: #374151;
-  padding: 6px 8px;
+  padding: 8px 12px;
   border-bottom: 1px solid #4b5563;
-  font-size: 0.7rem;
+  font-size: 0.8rem;
   display: flex;
   align-items: center;
   flex-shrink: 0;
-  line-height: 1.2;
-  height: 40px; /* Fixed height */
-  gap: 8px;
+  line-height: 1.3;
+  height: 44px; /* Fixed height */
+  gap: 10px;
 }
 
 .userDetails {
@@ -299,7 +299,7 @@ ul {
   .userInfo .walletAddress {
     font-family: "SF Mono", Monaco, "Cascadia Code", "Roboto Mono", Consolas, monospace;
     color: #d1d5db;
-    font-size: 0.65rem;
+    font-size: 0.75rem;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -310,7 +310,7 @@ ul {
   .userInfo .username {
     color: #f9fafb;
     font-weight: 600;
-    font-size: 0.7rem;
+    font-size: 0.8rem;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -321,16 +321,16 @@ ul {
 .disconnectBtn {
   background: linear-gradient(135deg, #ff6b6b, #ee5a52);
   border: none;
-  border-radius: 3px;
+  border-radius: 4px;
   color: white;
   cursor: pointer;
-  font-size: 0.6rem;
+  font-size: 0.65rem;
   font-weight: 500;
-  padding: 2px 4px;
+  padding: 3px 6px;
   transition: all 0.2s ease;
   white-space: nowrap;
   flex-shrink: 0;
-  height: 20px;
+  height: 22px;
 }
 
 .disconnectBtn:hover {
@@ -340,7 +340,7 @@ ul {
 
 /* Messages area - properly sized for iframe */
 .chatArea {
-  height: calc(100vh - 50px); /* Full height minus userInfo and input */
+  height: calc(100vh - 54px); /* Full height minus userInfo and input */
   display: flex;
   flex-direction: column;
   position: relative;
@@ -350,7 +350,7 @@ ul {
     flex: 1;
     margin: 0;
     overflow-y: auto;
-    padding: 8px 12px 8px 12px;
+    padding: 10px 14px 10px 14px;
     scroll-behavior: smooth;
     background: #111827;
     height: calc(100% - 50px); /* Account for input area */
@@ -359,11 +359,11 @@ ul {
   .message {
     cursor: pointer;
     transition: all 0.3s ease;
-    padding: 4px 8px;
-    margin: 1px 4px 1px 0;
+    padding: 6px 10px;
+    margin: 2px 4px 2px 0;
     border-radius: 8px 8px 8px 3px;
-    font-size: 0.85rem;
-    line-height: 1.3;
+    font-size: 0.95rem;
+    line-height: 1.4;
     display: block;
     background: linear-gradient(135deg, rgba(255,255,255,0.08), rgba(255,255,255,0.04));
     border: 1px solid rgba(255,255,255,0.1);
@@ -374,43 +374,43 @@ ul {
     animation: messageSlideIn 0.4s ease-out;
   }
 
-  /* Admin message styling */
+  /* Admin message styling - 부드러운 스타일로 변경 */
   li.message.admin-message {
-    border: 2px solid #ffd700 !important;
-    background: linear-gradient(135deg, rgba(255, 215, 0, 0.2), rgba(255, 215, 0, 0.1)) !important;
-    box-shadow: 0 0 15px rgba(255, 215, 0, 0.6) !important;
+    border: 1px solid rgba(255, 215, 0, 0.4) !important;
+    background: linear-gradient(135deg, rgba(255, 215, 0, 0.08), rgba(255, 215, 0, 0.05)) !important;
+    box-shadow: 0 0 8px rgba(255, 215, 0, 0.2) !important;
     position: relative;
   }
 
   li.message.admin-message:hover {
-    border-color: #ffed4e !important;
-    background: linear-gradient(135deg, rgba(255, 215, 0, 0.3), rgba(255, 215, 0, 0.15)) !important;
-    box-shadow: 0 0 20px rgba(255, 215, 0, 0.8) !important;
+    border-color: rgba(255, 215, 0, 0.6) !important;
+    background: linear-gradient(135deg, rgba(255, 215, 0, 0.12), rgba(255, 215, 0, 0.08)) !important;
+    box-shadow: 0 0 12px rgba(255, 215, 0, 0.3) !important;
   }
 
-     /* Admin badge */
+     /* Admin badge - 부드럽게 수정 */
    li.message.admin-message::before {
      content: "ADMIN";
      position: absolute;
-     top: -8px;
+     top: -6px;
      right: 8px;
-     background: linear-gradient(135deg, #ffd700, #ffb700);
+     background: linear-gradient(135deg, rgba(255, 215, 0, 0.9), rgba(255, 191, 0, 0.8));
      color: #000;
-     font-size: 0.6rem;
-     font-weight: bold;
+     font-size: 0.65rem;
+     font-weight: 600;
      padding: 2px 6px;
-     border-radius: 8px;
+     border-radius: 6px;
      z-index: 10;
-     box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+     box-shadow: 0 1px 3px rgba(0,0,0,0.15);
    }
 
-   /* Override normal message styles for admin messages - MAXIMUM SPECIFICITY */
+   /* Override normal message styles for admin messages - 부드럽게 조정 */
    ul.messages li.message.admin-message,
    .messages li.message.admin-message,
    li.message.admin-message {
-     border: 3px solid #ffd700 !important;
-     background: linear-gradient(135deg, rgba(255, 215, 0, 0.25), rgba(255, 215, 0, 0.15)) !important;
-     box-shadow: 0 0 20px rgba(255, 215, 0, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.1) !important;
+     border: 1px solid rgba(255, 215, 0, 0.4) !important;
+     background: linear-gradient(135deg, rgba(255, 215, 0, 0.08), rgba(255, 215, 0, 0.05)) !important;
+     box-shadow: 0 0 8px rgba(255, 215, 0, 0.2) !important;
      position: relative !important;
    }
    
@@ -550,7 +550,7 @@ ul {
 
   .username {
     font-weight: 600;
-    font-size: 0.75rem;
+    font-size: 0.85rem;
     color: #f3f4f6;
     margin-right: 6px;
     display: inline-block;
@@ -570,8 +570,8 @@ ul {
 }
 
   .messageBody {
-    font-size: 0.9rem;
-    line-height: 1.4;
+    font-size: 1rem;
+    line-height: 1.5;
     color: #f1f5f9;
     font-weight: 400;
     display: inline;
@@ -853,10 +853,10 @@ ul {
 .connection-status {
   display: flex;
   align-items: center;
-  gap: 3px;
-  font-size: 0.55rem;
+  gap: 4px;
+  font-size: 0.65rem;
   color: #9ca3af;
-  height: 20px;
+  height: 22px;
   flex-shrink: 0;
 }
 
@@ -967,13 +967,13 @@ ul {
 .sound-toggle {
   background: rgba(255,255,255,0.1);
   border: 1px solid rgba(255,255,255,0.2);
-  border-radius: 3px;
-  padding: 2px 4px;
+  border-radius: 4px;
+  padding: 3px 6px;
   color: #9ca3af;
-  font-size: 0.6rem;
+  font-size: 0.65rem;
   cursor: pointer;
   transition: all 0.2s ease;
-  height: 20px;
+  height: 22px;
   flex-shrink: 0;
 }
 
