@@ -167,23 +167,64 @@ $(function() {
               }
               // Manual fallback base58 implementation (simple version)
               else {
-                console.warn('[DegenPark Auth] bs58 library not available, using manual implementation');
-                // Simple base58 encoding fallback
-                const alphabet = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
-                let result = '';
-                let num = BigInt('0x' + Array.from(signature, byte => byte.toString(16).padStart(2, '0')).join(''));
+                console.warn('[DegenPark Auth] bs58 library not available, using improved manual implementation');
                 
-                while (num > 0) {
-                  result = alphabet[num % 58n] + result;
-                  num = num / 58n;
+                // Improved base58 encoding - using the standard Bitcoin alphabet
+                const base58Encode = (buffer) => {
+                  const ALPHABET = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+                  const ALPHABET_MAP = {};
+                  for (let i = 0; i < ALPHABET.length; i++) {
+                    ALPHABET_MAP[ALPHABET.charAt(i)] = i;
+                  }
+                  const BASE = 58;
+                  
+                  if (buffer.length === 0) return '';
+                  
+                  // Convert bytes to big integer
+                  let num = 0n;
+                  for (let i = 0; i < buffer.length; i++) {
+                    num = num * 256n + BigInt(buffer[i]);
+                  }
+                  
+                  // Convert to base58
+                  let encoded = '';
+                  while (num > 0) {
+                    const remainder = num % BigInt(BASE);
+                    num = num / BigInt(BASE);
+                    encoded = ALPHABET[Number(remainder)] + encoded;
+                  }
+                  
+                  // Add leading zeros
+                  for (let i = 0; i < buffer.length && buffer[i] === 0; i++) {
+                    encoded = ALPHABET[0] + encoded;
+                  }
+                  
+                  return encoded;
+                };
+                
+                try {
+                  base58Signature = base58Encode(signature);
+                  console.log('[DegenPark Auth] Manual base58 encoding successful');
+                } catch (manualError) {
+                  console.error('[DegenPark Auth] Manual base58 encoding failed:', manualError);
+                  // Last resort - use the old simple implementation
+                  const alphabet = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+                  let result = '';
+                  let num = BigInt('0x' + Array.from(signature, byte => byte.toString(16).padStart(2, '0')).join(''));
+                  
+                  while (num > 0) {
+                    result = alphabet[num % 58n] + result;
+                    num = num / 58n;
+                  }
+                  
+                  // Handle leading zeros
+                  for (let i = 0; i < signature.length && signature[i] === 0; i++) {
+                    result = alphabet[0] + result;
+                  }
+                  
+                  base58Signature = result;
+                  console.log('[DegenPark Auth] Fallback base58 encoding used');
                 }
-                
-                // Handle leading zeros
-                for (let i = 0; i < signature.length && signature[i] === 0; i++) {
-                  result = alphabet[0] + result;
-                }
-                
-                base58Signature = result;
               }
               
               console.log('[DegenPark Auth] Base58 encoded signature:', base58Signature);
@@ -402,6 +443,45 @@ $(function() {
       console.log('[DegenPark Auth] Working example 1: {"signature":"Fo5Prm7PEx8mpQfPoxfRhXULqziZ675VZjPtEZahi7RYpSHGwxvJfnwk4MjyDDdcSNPWsCtSLZQJ3AWTzR26qAj","publicKey":"3CnbCgThb6faA7CGWCPQyRd7S1wfnYnrNUWzBZBkobvC"}');
       console.log('[DegenPark Auth] Working example 2: {"signature":"3YoheiG3ViaUtroRbFyA5t96xbprbXUPvGvFXbrZbcyGzKxeeHv2HRktehhtD3RYKKvdvCmbZoKwrpPPEw9Vs6DH","publicKey":"EssGUXS3SdjYq2wmAUcCo5AJVd2ZmGcCJG3QUWzBZBkobvC"}');
       console.log('[DegenPark Auth] Our request body:', JSON.stringify(requestBody));
+      
+      // CRITICAL DEBUG: Try to understand the exact difference
+      console.log('[DegenPark Auth] === CRITICAL SIGNATURE ANALYSIS ===');
+      
+      // Test: Try to decode working signature and compare
+      if (window.bs58 && window.bs58.decode) {
+        try {
+          const workingSignature1 = 'Fo5Prm7PEx8mpQfPoxfRhXULqziZ675VZjPtEZahi7RYpSHGwxvJfnwk4MjyDDdcSNPWsCtSLZQJ3AWTzR26qAj';
+          const workingBytes1 = window.bs58.decode(workingSignature1);
+          console.log('[DegenPark Auth] Working signature 1 decoded length:', workingBytes1.length);
+          console.log('[DegenPark Auth] Working signature 1 first 8 bytes:', Array.from(workingBytes1.slice(0, 8)));
+          
+          console.log('[DegenPark Auth] Our signature decoded length:', signature.length);
+          console.log('[DegenPark Auth] Our signature first 8 bytes:', Array.from(signature.slice(0, 8)));
+          
+          console.log('[DegenPark Auth] Signature lengths match:', workingBytes1.length === signature.length);
+        } catch (decodeError) {
+          console.warn('[DegenPark Auth] Failed to decode working signature for comparison:', decodeError);
+        }
+      }
+      
+      // Test: Try different signature formats
+      console.log('[DegenPark Auth] === TESTING ALTERNATIVE SIGNATURE FORMATS ===');
+      
+      // Maybe the wallet returns signature + recovery info?
+      if (signedMessage.signature.length === 65) {
+        console.log('[DegenPark Auth] Signature is 65 bytes - might include recovery byte');
+        const altSignature = signedMessage.signature.slice(0, 64); // Remove recovery byte
+        const altBase58 = window.bs58 ? window.bs58.encode(altSignature) : base58Encode(altSignature);
+        console.log('[DegenPark Auth] Alternative signature (64 bytes):', altBase58);
+        console.log('[DegenPark Auth] Alternative signature length:', altBase58.length);
+        
+        // Try using the 64-byte version
+        if (altBase58.length >= 87 && altBase58.length <= 88) {
+          console.log('[DegenPark Auth] Using 64-byte signature variant');
+          base58Signature = altBase58;
+        }
+      }
+      
       console.log('[DegenPark Auth] === KEY DIFFERENCES ANALYSIS ===');
       console.log('[DegenPark Auth] Our public key length:', actualSigningKey.length);
       console.log('[DegenPark Auth] Working example lengths: 44 chars (base58 pubkey)');
@@ -476,22 +556,80 @@ $(function() {
           console.log('[DegenPark Auth] Prefix approach failed:', prefixError.message);
           
           try {
-            // Test 2: Try with raw message bytes (no UTF-8 encoding)
-            console.log('[DegenPark Auth] Test 2: Trying different encoding approach');
+            // Test 2: Try with exact message as bytes (no string encoding)
+            console.log('[DegenPark Auth] Test 2: Trying raw message bytes approach');
             const altSignMessage2 = async (message) => {
-              // Try signing raw buffer instead of text-encoded
-              const messageBuffer = Buffer.from(message, 'utf8');
-              console.log('[DegenPark Auth] Trying buffer approach:', Array.from(messageBuffer));
-              return await window.solana.signMessage(messageBuffer);
+              // Try signing just the raw UTF-8 bytes without any wrapper
+              const messageBytes = new TextEncoder().encode(message);
+              console.log('[DegenPark Auth] Raw message bytes:', Array.from(messageBytes));
+              
+              // Call wallet signMessage directly with bytes
+              const walletResponse = await window.solana.signMessage(messageBytes);
+              console.log('[DegenPark Auth] Raw approach wallet response:', walletResponse);
+              
+              // Get the signature and try different processing
+              const rawSignature = new Uint8Array(walletResponse.signature);
+              console.log('[DegenPark Auth] Raw signature length:', rawSignature.length);
+              
+              // Try different signature lengths
+              let processedSignature;
+              if (rawSignature.length === 65) {
+                // Remove potential recovery byte
+                processedSignature = rawSignature.slice(0, 64);
+                console.log('[DegenPark Auth] Using 64-byte signature (removed recovery byte)');
+              } else if (rawSignature.length === 64) {
+                processedSignature = rawSignature;
+                console.log('[DegenPark Auth] Using 64-byte signature as-is');
+              } else {
+                processedSignature = rawSignature;
+                console.log('[DegenPark Auth] Using signature as-is, length:', rawSignature.length);
+              }
+              
+              // Encode with best available method
+              let encodedSig;
+              if (window.bs58 && window.bs58.encode) {
+                encodedSig = window.bs58.encode(processedSignature);
+                console.log('[DegenPark Auth] Encoded with bs58 library');
+              } else {
+                // Use our improved manual encoding
+                const base58Encode = (buffer) => {
+                  const ALPHABET = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+                  if (buffer.length === 0) return '';
+                  let num = 0n;
+                  for (let i = 0; i < buffer.length; i++) {
+                    num = num * 256n + BigInt(buffer[i]);
+                  }
+                  let encoded = '';
+                  while (num > 0) {
+                    const remainder = num % 58n;
+                    num = num / 58n;
+                    encoded = ALPHABET[Number(remainder)] + encoded;
+                  }
+                  for (let i = 0; i < buffer.length && buffer[i] === 0; i++) {
+                    encoded = ALPHABET[0] + encoded;
+                  }
+                  return encoded;
+                };
+                encodedSig = base58Encode(processedSignature);
+                console.log('[DegenPark Auth] Encoded with manual implementation');
+              }
+              
+              console.log('[DegenPark Auth] Final processed signature:', encodedSig);
+              console.log('[DegenPark Auth] Final signature length:', encodedSig.length);
+              
+              return {
+                signature: encodedSig,
+                publicKey: walletResponse.publicKey ? walletResponse.publicKey.toString() : null
+              };
             };
             
-            // This approach is problematic because we already encode in signMessage
-            // Let me modify this differently
+            const result2 = await getDegenParkAuthTokens(publicKey, altSignMessage2);
+            console.log('[DegenPark Auth] SUCCESS with raw message bytes approach!');
+            return result2;
             
-            console.log('[DegenPark Auth] Buffer approach - will need wallet adjustment');
-            
-          } catch (bufferError) {
-            console.log('[DegenPark Auth] Buffer approach failed:', bufferError.message);
+          } catch (rawError) {
+            console.log('[DegenPark Auth] Raw message bytes approach failed:', rawError.message);
+            console.log('[DegenPark Auth] All signature approaches failed - authentication not possible');
           }
         }
       }
@@ -2706,6 +2844,25 @@ $(document).ready(function() {
   console.log('[Init] Solana wallet API available:', !!window.solana);
   console.log('[Init] Socket.IO available:', !!window.io);
   
+  // Fallback library loading if initial CDN failed
+  if (!window.bs58) {
+    console.log('[Init] Attempting to load bs58 from alternative CDN...');
+    const script = document.createElement('script');
+    script.src = 'https://cdn.skypack.dev/bs58@5.0.0';
+    script.onload = () => {
+      console.log('[Init] bs58 loaded from alternative CDN');
+      if (window.bs58) {
+        const testArray = new Uint8Array([1, 2, 3, 4, 5]);
+        const testResult = window.bs58.encode(testArray);
+        console.log('[Init] bs58 alternative test successful:', testResult);
+      }
+    };
+    script.onerror = () => {
+      console.warn('[Init] Failed to load bs58 from alternative CDN');
+    };
+    document.head.appendChild(script);
+  }
+  
   // Test bs58 if available
   if (window.bs58) {
     try {
@@ -2727,5 +2884,10 @@ $(document).ready(function() {
     }
   }
   
-  initializeMenu();
+  // Initialize menu functionality inline to avoid scope issues
+  if (typeof initializeMenu === 'function') {
+    initializeMenu();
+  } else {
+    console.warn('[Init] initializeMenu function not available - skipping menu initialization');
+  }
 });
