@@ -33,7 +33,7 @@
               <div class="menu-section">
                 <div class="menu-item" id="direct-messages-header">
                   <span class="menu-item-icon">💬</span>
-                  <span class="menu-item-text">Send Direct Message</span>
+                  <span class="menu-item-text">Direct Messages</span>
                   <span class="menu-item-badge dm-count hidden">0</span>
                 </div>
               </div>
@@ -48,8 +48,13 @@
           </div>
           
           <div class="userDetails">
-            <span class="walletAddress"></span>
-            <span class="username"></span>
+            <div class="user-avatar-container" style="display: none;">
+              <img class="user-avatar-img" src="" alt="Profile Picture" />
+            </div>
+            <div class="user-text-info">
+              <span class="walletAddress"></span>
+              <span class="username"></span>
+            </div>
           </div>
           
           <div class="userControls">
@@ -57,13 +62,21 @@
           </div>
         </div>
         <ul class="messages"></ul>
+    
+    <!-- Messages Interface Container -->
+    <div class="messages-container" id="messages-container"></div>
       </div>
       <div class="input-section">
         <div id="replyPreview" class="reply-preview hidden">
           <span class="reply-text">Replying to <strong class="reply-username"></strong></span>
           <button class="cancel-reply">×</button>
         </div>
-        <input class="inputMessage" placeholder="Type here..."/>
+        <div class="input-container">
+          <input class="inputMessage" placeholder="Type here..." maxlength="60"/>
+          <div class="character-counter">
+            <span class="char-count">0</span><span class="char-limit">/60</span>
+          </div>
+        </div>
       </div>
     </li>
     <li class="username page">
@@ -75,6 +88,18 @@
             ⚠️ Account not found on DegenPark - creating chat-only profile
           </div>
         </p>
+        
+        <!-- DegenPark Profile Display -->
+        <div class="degenpark-profile" style="display: none;">
+          <div class="profile-preview">
+            <img class="profile-avatar" src="" alt="Profile Picture" />
+            <div class="profile-info">
+              <div class="profile-username"></div>
+              <div class="profile-source">DegenPark Account</div>
+            </div>
+          </div>
+        </div>
+        
         <input class="usernameInput" type="text" maxlength="14" placeholder="Enter your nickname" />
         <div class="usernameNote">
           <small>This nickname will be permanently linked to your wallet address</small>
@@ -103,6 +128,49 @@
       </div>
     </li>
   </ul>
+
+  <!-- Settings Modal -->
+  <div id="settings-modal" class="modal-overlay" style="display: none;">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>Settings</h3>
+        <button class="modal-close" id="close-settings">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="settings-section" id="degenpark-settings" style="display: none;">
+          <h4>DegenPark Account</h4>
+          <div class="setting-item">
+            <label>Username</label>
+            <div class="username-change-container">
+              <input type="text" id="new-username" class="setting-input" placeholder="Enter new username" maxlength="20" />
+              <button id="update-username-btn" class="setting-button">Update</button>
+            </div>
+            <div class="setting-note">
+              <small>This will update your username on DegenPark</small>
+            </div>
+          </div>
+          
+          <div class="setting-item">
+            <label>Level & Points</label>
+            <div class="level-display" id="level-info">
+              <span class="level-text">Loading...</span>
+            </div>
+          </div>
+        </div>
+        
+        <div class="settings-section">
+          <h4>Chat Settings</h4>
+          <div class="setting-item">
+            <label>Sound Notifications</label>
+            <div class="setting-toggle">
+              <input type="checkbox" id="sound-toggle" checked />
+              <label for="sound-toggle" class="toggle-switch"></label>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <script src="https://code.jquery.com/jquery-1.10.2.min.js"></script>
   <script src="https://unpkg.com/bs58@5.0.0/index.js"></script>

@@ -215,6 +215,7 @@ io.on('connection', (socket) => {
       isAdmin: isAdmin(socket.walletAddress),
       isDegenPark: isDegenParkUser,
       avatar: userData.degenParkProfile?.avatar || null,
+      level: userData.level || null,
       degenParkProfile: userData.degenParkProfile || null,
       degenParkTokens: userData.degenParkTokens || null // Store tokens securely on server
     });
@@ -223,11 +224,41 @@ io.on('connection', (socket) => {
     
     console.log(`User ${socket.username} (${socket.walletAddress}) joined. Total users: ${numUsers}${isAdmin(socket.walletAddress) ? ' [ADMIN]' : ''}${isDegenParkUser ? ' [DEGENPARK]' : ''}`);
 
+    // Send all known users for DM functionality (both online and offline)
+    const allKnownUsers = [];
+    walletUserMap.forEach((username, walletAddress) => {
+      // Skip current user
+      if (username === socket.username) return;
+      
+      // Check if user is currently online
+      let isOnline = false;
+      let userSocketInfo = null;
+      
+      for (const [socketId, socketData] of activeSockets.entries()) {
+        if (socketData.username === username) {
+          isOnline = true;
+          userSocketInfo = socketData;
+          break;
+        }
+      }
+      
+      allKnownUsers.push({
+        username: username,
+        walletAddress: walletAddress,
+        isOnline: isOnline,
+        isAdmin: isAdmin(walletAddress),
+        isDegenPark: userSocketInfo?.isDegenPark || false,
+        avatar: userSocketInfo?.avatar || null,
+        level: userSocketInfo?.level || null
+      });
+    });
+
     socket.emit('login', {
       numUsers: numUsers,
       isAdmin: isAdmin(socket.walletAddress),
       isDegenPark: isDegenParkUser,
-      degenParkProfile: userData.degenParkProfile
+      degenParkProfile: userData.degenParkProfile,
+      allKnownUsers: allKnownUsers // Send all users for DM search
     });
 
     // Send undelivered direct messages
@@ -254,7 +285,8 @@ io.on('connection', (socket) => {
       walletAddress: socket.walletAddress,
       isAdmin: isAdmin(socket.walletAddress),
       isDegenPark: isDegenParkUser,
-      avatar: userData.degenParkProfile?.avatar || null
+      avatar: userData.degenParkProfile?.avatar || null,
+      level: userData.level || null
     });
   });
 
@@ -312,6 +344,9 @@ io.on('connection', (socket) => {
     // Generate unique message ID
     const messageId = Date.now() + '-' + Math.random().toString(36).substr(2, 9);
 
+    // Get socket info including avatar
+    const socketInfo = activeSockets.get(socket.id);
+    
     // Broadcast message with mention data
     const broadcastData = {
       username: socket.username,
@@ -321,7 +356,10 @@ io.on('connection', (socket) => {
       mentions: mentions,
       messageId: messageId,
       timestamp: new Date(),
-      isAdmin: isAdmin(socket.walletAddress)
+      isAdmin: isAdmin(socket.walletAddress),
+      avatar: socketInfo?.avatar || null,
+      isDegenPark: socketInfo?.isDegenPark || false,
+      level: socketInfo?.level || null
     };
 
     // Send to all other users

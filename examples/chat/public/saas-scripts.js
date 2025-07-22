@@ -191,11 +191,11 @@ function toggleChat() {
   
   if (chatVisible) {
     chatWidget.classList.remove('hidden');
-    chatButton.style.transform = 'rotate(180deg)';
+    // Remove annoying icon rotation - chatButton.style.transform = 'rotate(180deg)';
     badge.classList.add('hidden');
   } else {
     chatWidget.classList.add('hidden');
-    chatButton.style.transform = 'rotate(0deg)';
+    // Remove annoying icon rotation - chatButton.style.transform = 'rotate(0deg)';
   }
 }
 

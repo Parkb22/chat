@@ -25,6 +25,10 @@ $(function() {
   
   // Initialize activeSockets to prevent errors
   window.activeSockets = {};
+  
+  // Store current wallet provider
+  let currentWalletProvider = null;
+  let currentWalletType = null;
 
   // Pages
   const $walletPage = $('.wallet.page');
@@ -72,21 +76,39 @@ $(function() {
 
   // Wallet connection functionality
 
+  // Wallet provider detection
+  const getWalletProvider = (walletType) => {
+    switch(walletType) {
+      case 'phantom':
+        return window.solana || window.phantom?.solana;
+      case 'solflare':
+        return window.solflare;
+      case 'backpack':
+        return window.backpack;
+      default:
+        return null;
+    }
+  };
+
   // Connect to wallet with DegenPark API integration
-  const connectWallet = async () => {
+  const connectWallet = async (walletType = 'phantom') => {
     try {
-      if (!window.solana) {
-        throw new Error('Solana wallet not found! Please install a Solana wallet extension.');
+      const provider = getWalletProvider(walletType);
+      
+      if (!provider) {
+        throw new Error(`${walletType} wallet not found! Please install the ${walletType} wallet extension.`);
       }
 
-      console.log('[Wallet] Connecting to wallet...');
-      const response = await window.solana.connect();
+      console.log(`[Wallet] Connecting to ${walletType} wallet...`);
+      const response = await provider.connect();
       const publicKey = response.publicKey.toString();
       console.log('[Wallet] Connected:', publicKey);
 
       // Store wallet info
       window.walletAddress = publicKey;
       window.walletConnected = true;
+      currentWalletProvider = provider;
+      currentWalletType = walletType;
 
       // Try to authenticate with DegenPark API
       let degenParkProfile = null;
@@ -105,7 +127,7 @@ $(function() {
           
           try {
             // Try the direct message first (matching old script)
-            const signedMessage = await window.solana.signMessage(encodedMessage);
+            const signedMessage = await provider.signMessage(encodedMessage);
             
             console.log('[DegenPark Auth] Wallet signature response:', signedMessage);
             console.log('[DegenPark Auth] Signature type:', typeof signedMessage.signature);
@@ -336,15 +358,30 @@ $(function() {
         };
 
         // Authenticate with DegenPark
-        await getDegenParkAuthTokens(publicKey, signMessage);
+        const authResult = await getDegenParkAuthTokens(publicKey, signMessage);
         
-        // Fetch profile if authentication succeeded
-        degenParkProfile = await fetchDegenParkProfile(publicKey);
-        
-        if (degenParkProfile && degenParkProfile.username) {
+        // Use profile data directly from authentication response
+        if (authResult && authResult.user) {
+          degenParkProfile = authResult.user;
           degenParkStatus = `✅ DegenPark account: ${degenParkProfile.username}`;
           window.degenParkProfile = degenParkProfile;
-          console.log('[DegenPark] Profile loaded:', degenParkProfile);
+          console.log('[DegenPark] Profile loaded from auth response:', degenParkProfile);
+          
+          // Fetch user level data
+          try {
+            const levelData = await fetchDegenParkLevel();
+            if (levelData) {
+              window.degenParkLevel = levelData;
+              console.log('[DegenPark] Level data loaded:', levelData);
+              
+              // Update activeSockets with level data if user is already connected
+              if (username && window.activeSockets) {
+                updateUserLevelInSockets(username, levelData.level);
+              }
+            }
+          } catch (levelError) {
+            console.warn('[DegenPark] Failed to fetch level data:', levelError);
+          }
         } else {
           degenParkStatus = '⚠️ DegenPark authenticated but no profile found';
         }
@@ -379,15 +416,69 @@ $(function() {
       // Update wallet display immediately
       updateUserDisplay();
       
-      // If we have a DegenPark username, pre-fill it
+      // If we have a DegenPark username, show profile and auto-continue
       if (degenParkProfile && degenParkProfile.username) {
         $('.usernameInput').val(degenParkProfile.username);
         $('.usernameInput').prop('readonly', true);
         $('.setUsername').text('Continue with DegenPark Profile');
+        
+        // Show DegenPark profile preview
+        $('.degenpark-profile').show();
+        $('.profile-username').text(degenParkProfile.username);
+        if (degenParkProfile.avatar) {
+          $('.profile-avatar').attr('src', degenParkProfile.avatar);
+        } else {
+          $('.profile-avatar').hide();
+        }
+        
         console.log('[Wallet] Pre-filled DegenPark username:', degenParkProfile.username);
+        console.log('[Wallet] Profile avatar:', degenParkProfile.avatar);
+        
+        // Auto-continue to chat since we have a verified DegenPark account
+        setTimeout(() => {
+          console.log('[Wallet] Auto-continuing with DegenPark profile...');
+          username = degenParkProfile.username;
+          window.username = username;
+          
+          // Store in localStorage
+          localStorage.setItem('chatUsername', username);
+          localStorage.setItem('chatWalletAddress', publicKey);
+          
+          // Transition to chat
+          $('.username.page').hide();
+          $('.chat.page').show();
+          
+          // Initialize chat with DegenPark profile
+          const socketData = {
+            username: username,
+            walletAddress: publicKey,
+            isDegenPark: true,
+            avatar: degenParkProfile.avatar
+          };
+          
+          // Add level data if available
+          if (window.degenParkLevel) {
+            socketData.level = window.degenParkLevel.level;
+            console.log('[Chat] Including level data:', window.degenParkLevel.level);
+          }
+          
+          console.log('[Chat] Sending socket data:', socketData);
+          console.log('[Chat] username type:', typeof username, 'value:', username);
+          console.log('[Chat] publicKey type:', typeof publicKey, 'value:', publicKey);
+          
+          socket.emit('add user', socketData);
+          
+          console.log('[Chat] Joined with DegenPark profile:', {
+            username: username,
+            walletAddress: publicKey,
+            avatar: degenParkProfile.avatar
+          });
+        }, 1500); // Give user a moment to see their profile
+        
       } else {
         $('.usernameInput').prop('readonly', false);
         $('.setUsername').text('Set Username');
+        $('.degenpark-profile').hide();
         console.log('[Wallet] Manual username entry required');
       }
 
@@ -410,176 +501,79 @@ $(function() {
     console.log('[DegenPark Auth] Public key:', publicKey);
     
     try {
-      // Step 1: Test multiple message variants that might work
-      const messageVariants = [
-        "Hello, world!",                               // Standard from sample.js 
-        "Connect to join the game!",                   // User mentioned seeing this on website
-        "Solana Signed Message:\nHello, world!",      // Phantom wallet prefix format
-        "Solana Signed Message:\nConnect to join the game!"
-      ];
-      
-      console.log('[DegenPark Auth] Will systematically test', messageVariants.length, 'message variants');
-      
-      // Step 2: For each message, test different signature processing approaches
-      for (let msgIndex = 0; msgIndex < messageVariants.length; msgIndex++) {
-        const testMessage = messageVariants[msgIndex];
-        console.log(`[DegenPark Auth] === TEST MESSAGE ${msgIndex + 1}: "${testMessage}" ===`);
+      // Use the message that works on the website
+      const testMessage = "Connect to join the game!";
+      console.log(`[DegenPark Auth] Using working message: "${testMessage}"`);
         
-        try {
-          // Get wallet signature for this message
-          console.log('[DegenPark Auth] Requesting signature from wallet...');
-          const walletResponse = await signMessage(testMessage);
-          console.log('[DegenPark Auth] Wallet signature response:', {
-            hasPublicKey: !!walletResponse.publicKey,
-            hasSignature: !!walletResponse.signature,
-            signatureType: typeof walletResponse.signature,
-            signatureLength: walletResponse.signature?.length
-          });
-          
-          // Extract the raw signature bytes
-          const rawSignature = new Uint8Array(walletResponse.signature);
-          console.log('[DegenPark Auth] Raw signature analysis:', {
-            totalLength: rawSignature.length,
-            first8Hex: Array.from(rawSignature.slice(0, 8)).map(b => '0x' + b.toString(16).padStart(2, '0')),
-            last8Hex: Array.from(rawSignature.slice(-8)).map(b => '0x' + b.toString(16).padStart(2, '0'))
-          });
-          
-          // Step 3: Try different signature length variations
-          const signatureVariants = [];
-          
-          // Variant A: Full signature as-is
-          signatureVariants.push({
-            name: `Full ${rawSignature.length}-byte signature`,
-            bytes: rawSignature
-          });
-          
-          // Variant B: If 65 bytes, try removing last byte (recovery byte)
-          if (rawSignature.length === 65) {
-            signatureVariants.push({
-              name: '64-byte signature (recovery removed)',
-              bytes: rawSignature.slice(0, 64)
-            });
-          }
-          
-          // Variant C: If 64 bytes, maybe add a zero byte?
-          if (rawSignature.length === 64) {
-            const paddedSig = new Uint8Array(65);
-            paddedSig.set(rawSignature);
-            paddedSig[64] = 0;
-            signatureVariants.push({
-              name: '65-byte signature (zero-padded)',
-              bytes: paddedSig
-            });
-          }
-          
-          console.log(`[DegenPark Auth] Testing ${signatureVariants.length} signature variants for message "${testMessage}"`);
-          
-          // Step 4: For each signature variant, try different encoding methods
-          for (const sigVariant of signatureVariants) {
-            console.log(`[DegenPark Auth] === Testing: ${sigVariant.name} (${sigVariant.bytes.length} bytes) ===`);
-            
-            // Try both library and manual base58 encoding
-            const encodingMethods = [];
-            
-            // Method 1: bs58 library (if available)
-            if (window.bs58 && window.bs58.encode) {
-              try {
-                const libEncoded = window.bs58.encode(sigVariant.bytes);
-                encodingMethods.push({
-                  name: 'bs58 library',
-                  signature: libEncoded
-                });
-              } catch (libError) {
-                console.warn('[DegenPark Auth] bs58 library encoding failed:', libError.message);
-              }
-            }
-            
-            // Method 2: Manual base58 encoding (always available)
-            try {
-              const manualEncoded = manualBase58Encode(sigVariant.bytes);
-              encodingMethods.push({
-                name: 'manual encoding',
-                signature: manualEncoded
-              });
-            } catch (manualError) {
-              console.warn('[DegenPark Auth] Manual base58 encoding failed:', manualError.message);
-            }
-            
-            // Step 5: Test each encoding method
-            for (const encoding of encodingMethods) {
-              console.log(`[DegenPark Auth] Testing ${encoding.name}: length=${encoding.signature.length}, sample="${encoding.signature.substring(0, 10)}...${encoding.signature.substring(encoding.signature.length - 10)}"`);
-              
-              // Compare with known working signatures
-              console.log('[DegenPark Auth] Length comparison with working examples:');
-              console.log('[DegenPark Auth] - Working sig 1: 88 chars (Fo5Prm7P...R26qAj)');
-              console.log('[DegenPark Auth] - Working sig 2: 88 chars (3YoheiG3...9Vs6DH)'); 
-              console.log(`[DegenPark Auth] - Our signature: ${encoding.signature.length} chars (${encoding.signature.substring(0, 8)}...${encoding.signature.substring(encoding.signature.length - 6)})`);
-              console.log('[DegenPark Auth] Length matches working examples:', encoding.signature.length === 88);
-              
-              // Get the signing public key
-              const signingPublicKey = walletResponse.publicKey ? walletResponse.publicKey.toString() : publicKey;
-              
-              // Build request body (exactly like working sample.js)
-              const requestBody = {
-                signature: encoding.signature,
-                publicKey: signingPublicKey
-              };
-              
-              console.log('[DegenPark Auth] === MAKING API REQUEST ===');
-              console.log('[DegenPark Auth] Message variant:', `"${testMessage}"`);
-              console.log('[DegenPark Auth] Signature variant:', sigVariant.name);
-              console.log('[DegenPark Auth] Encoding method:', encoding.name);
-              console.log('[DegenPark Auth] Request body:', JSON.stringify(requestBody, null, 2));
-              
-              // Step 6: Make the API call (exactly matching sample.js)
-              const response = await fetch(`${DEGENPARK_API_BASE}/api/v1/auth/login/web3`, {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                  'accept': 'application/json',
-                  'x-network': 'solana'  // CRITICAL: This header is in the working examples
-                },
-                body: JSON.stringify(requestBody)
-              });
-              
-              const responseData = await response.json();
-              console.log('[DegenPark Auth] API Response:', {
-                status: response.status,
-                ok: response.ok,
-                hasData: !!responseData.data,
-                hasToken: !!(responseData.data && responseData.data.accessToken)
-              });
-              
-              // Step 7: Check for success
-              if (response.ok && responseData.data && responseData.data.accessToken) {
-                console.log('[DegenPark Auth] 🎉 SUCCESS! Authentication worked with:');
-                console.log(`[DegenPark Auth] ✅ Message: "${testMessage}"`);
-                console.log(`[DegenPark Auth] ✅ Signature: ${sigVariant.name}`);
-                console.log(`[DegenPark Auth] ✅ Encoding: ${encoding.name}`);
-                console.log(`[DegenPark Auth] ✅ Access token obtained`);
-                
-                // Store the tokens
-                degenParkTokens = {
-                  accessToken: responseData.data.accessToken,
-                  refreshToken: responseData.data.refreshToken || null
-                };
-                
-                return degenParkTokens;
-              } else {
-                console.log(`[DegenPark Auth] ❌ Failed (${response.status}):`, responseData.error?.message || responseData.message || 'Unknown error');
-              }
-            }
-          }
-          
-          console.log(`[DegenPark Auth] All combinations failed for message: "${testMessage}"`);
-          
-        } catch (messageError) {
-          console.error(`[DegenPark Auth] Message "${testMessage}" failed completely:`, messageError.message);
-        }
-      }
+      // Get wallet signature for this message
+      console.log('[DegenPark Auth] Requesting signature from wallet...');
+      const walletResponse = await signMessage(testMessage);
+      console.log('[DegenPark Auth] Wallet signature response:', {
+        hasPublicKey: !!walletResponse.publicKey,
+        hasSignature: !!walletResponse.signature,
+        signatureType: typeof walletResponse.signature,
+        signatureLength: walletResponse.signature?.length
+      });
       
-      // If we reach here, all attempts failed
-      throw new Error('🚫 All authentication attempts failed. DegenPark integration not possible with current wallet/signature format.');
+      // The walletResponse already contains the base58 encoded signature
+      console.log('[DegenPark Auth] Using pre-encoded signature from wallet response');
+      console.log('[DegenPark Auth] Signature:', walletResponse.signature);
+      console.log('[DegenPark Auth] Signature length:', walletResponse.signature.length);
+      
+      // Get the signing public key
+      const signingPublicKey = walletResponse.publicKey || publicKey;
+      
+      // Build request body (exactly like working sample.js)
+      const requestBody = {
+        signature: walletResponse.signature,
+        publicKey: signingPublicKey
+      };
+      
+      console.log('[DegenPark Auth] === MAKING API REQUEST ===');
+      console.log('[DegenPark Auth] Message variant:', `"${testMessage}"`);
+      console.log('[DegenPark Auth] Request body:', JSON.stringify(requestBody, null, 2));
+      
+      // Make the API call (exactly matching sample.js)
+      const response = await fetch(`${DEGENPARK_API_BASE}/api/v1/auth/login/web3`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'accept': 'application/json',
+          'x-network': 'solana'  // CRITICAL: This header is in the working examples
+        },
+        body: JSON.stringify(requestBody)
+      });
+      
+      const responseData = await response.json();
+      console.log('[DegenPark Auth] API Response:', {
+        status: response.status,
+        ok: response.ok,
+        hasData: !!responseData.data,
+        hasToken: !!(responseData.data && responseData.data.accessToken)
+      });
+      
+      // Check for success
+      if (response.ok && responseData.data && responseData.data.accessToken) {
+        console.log('[DegenPark Auth] 🎉 SUCCESS! Authentication worked with:');
+        console.log(`[DegenPark Auth] ✅ Message: "${testMessage}"`);
+        console.log(`[DegenPark Auth] ✅ Access token obtained`);
+        
+        // Store the tokens and user data
+        degenParkTokens = {
+          accessToken: responseData.data.accessToken,
+          refreshToken: responseData.data.refreshToken || null
+        };
+        
+        // Return both tokens and user profile data
+        return {
+          tokens: degenParkTokens,
+          user: responseData.data.user
+        };
+      } else {
+        const errorMsg = responseData.error?.message || responseData.message || 'Unknown error';
+        console.log(`[DegenPark Auth] ❌ Failed (${response.status}): ${errorMsg}`);
+        throw new Error(`Authentication failed: ${errorMsg}`);
+      }
       
     } catch (error) {
       console.error('[DegenPark Auth] Complete authentication failure:', error.message);
@@ -614,43 +608,89 @@ $(function() {
     return encoded;
   }
 
-  // Function to fetch user profile using JWT token
-  const fetchDegenParkProfile = async (publicKey) => {
+  // Fetch user points and calculate level
+  const fetchDegenParkLevel = async () => {
     try {
       if (!degenParkTokens || !degenParkTokens.accessToken) {
-        throw new Error('No valid authentication token');
+        console.log('[DegenPark Level] No auth token available');
+        return null;
       }
 
-      console.log('[DegenPark Profile] Fetching profile for:', publicKey);
-      const response = await fetch(`${DEGENPARK_API_BASE}/api/v1/users/profile`, {
+      console.log('[DegenPark Level] Fetching user points...');
+      const response = await fetch(`${DEGENPARK_API_BASE}/api/v1/user-point/my-rank`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${degenParkTokens.accessToken}`,
           'Accept': 'application/json',
-          'x-network': 'solana'  // REQUIRED: Matching the working DegenPark website format
+          'x-network': 'solana'
         }
       });
 
       const data = await response.json();
-      console.log('[DegenPark Profile] Response status:', response.status);
+      console.log('[DegenPark Level] Points response:', data);
 
       if (response.ok && data.data) {
-        console.log('[DegenPark Profile] Profile fetched successfully');
+        const totalPoints = data.data.totalPoint || 0;
+        const level = Math.floor(totalPoints / 1000);
+        
+        console.log('[DegenPark Level] Total points:', totalPoints, 'Level:', level);
+        
         return {
-          username: data.data.username || null,
-          avatar: data.data.avatar || data.data.profilePicture || null,
-          isDegenPark: true,
-          ...data.data
+          level: level,
+          points: totalPoints,
+          rank: data.data.rank,
+          breakdown: {
+            solanaGamePoint: data.data.solanaGamePoint,
+            eclipseGamePoint: data.data.eclipseGamePoint,
+            questPoint: data.data.questPoint,
+            referralPoint: data.data.referralPoint
+          }
         };
-      } else if (response.status === 404) {
-        console.log('[DegenPark Profile] User not found');
-        return null;
       } else {
-        throw new Error('Profile fetch failed: ' + (data.message || response.statusText));
+        console.warn('[DegenPark Level] Failed to fetch points:', data.message);
+        return null;
       }
     } catch (error) {
-      console.error('[DegenPark Profile Error]', error.message);
+      console.error('[DegenPark Level] Error fetching points:', error);
       return null;
+    }
+  };
+
+  // Update username on DegenPark
+  const updateDegenParkUsername = async (newUsername) => {
+    try {
+      if (!degenParkTokens || !degenParkTokens.accessToken) {
+        throw new Error('No authentication token available');
+      }
+
+      console.log('[DegenPark Update] Updating username to:', newUsername);
+      const response = await fetch(`${DEGENPARK_API_BASE}/api/v1/users/me`, {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${degenParkTokens.accessToken}`,
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'x-network': 'solana'
+        },
+        body: JSON.stringify({
+          username: newUsername
+        })
+      });
+
+      const data = await response.json();
+      console.log('[DegenPark Update] Username update response:', data);
+
+      if (response.ok && data.data) {
+        // Update local profile data
+        window.degenParkProfile.username = data.data.username;
+        console.log('[DegenPark Update] Username successfully updated to:', data.data.username);
+        return data.data;
+      } else {
+        throw new Error(data.message || 'Failed to update username');
+      }
+    } catch (error) {
+      console.error('[DegenPark Update] Error updating username:', error);
+      throw error;
     }
   };
 
@@ -660,24 +700,22 @@ $(function() {
     console.log('[UpdateUserDisplay] $walletAddress element found:', $walletAddress.length);
     console.log('[UpdateUserDisplay] $usernameDisplay element found:', $usernameDisplay.length);
     
+    // Wallet address display removed from status bar - too much clutter
     if (window.walletAddress) {
-      const shortWallet = window.walletAddress.substring(0, 8) + '...' + window.walletAddress.substring(window.walletAddress.length - 8);
-      console.log('[UpdateUserDisplay] Setting wallet display to:', shortWallet);
-      
-      if ($walletAddress.length > 0) {
-        $walletAddress.text(shortWallet);
-        console.log('[UpdateUserDisplay] Wallet address set successfully');
-      } else {
-        console.error('[UpdateUserDisplay] .walletAddress element not found in DOM');
-      }
-    } else {
-      console.log('[UpdateUserDisplay] No wallet address found');
+      console.log('[UpdateUserDisplay] Wallet connected but not showing in status bar');
     }
     
     if (username) {
-      // Add DegenPark badge if user is from DegenPark
+      // Add DegenPark badge and level if user is from DegenPark
       if (window.degenParkProfile) {
-        $usernameDisplay.html(`(${username}) <span class="degenpark-badge" title="DegenPark Verified">DP</span>`);
+        let badges = `<span class="degenpark-badge" title="DegenPark Verified">DP</span>`;
+        
+        // Add level badge if available
+        if (window.degenParkLevel) {
+          badges += `<span class="level-badge" title="Level ${window.degenParkLevel.level} (${window.degenParkLevel.points} points)">LVL ${window.degenParkLevel.level}</span>`;
+        }
+        
+        $usernameDisplay.html(`(${username}) ${badges}`);
       } else {
         $usernameDisplay.text(`(${username})`);
       }
@@ -685,13 +723,23 @@ $(function() {
     } else {
       console.log('[UpdateUserDisplay] No username found');
     }
+    
+    // Show DegenPark avatar if available
+    if (window.degenParkProfile && window.degenParkProfile.avatar) {
+      $('.user-avatar-container').show();
+      $('.user-avatar-img').attr('src', window.degenParkProfile.avatar);
+      console.log('[UpdateUserDisplay] DegenPark avatar displayed:', window.degenParkProfile.avatar);
+    } else {
+      $('.user-avatar-container').hide();
+      console.log('[UpdateUserDisplay] No DegenPark avatar available');
+    }
   };
 
   // Disconnect functionality
   const disconnectWallet = async () => {
     try {
-      if (window.solana && window.walletConnected) {
-        await window.solana.disconnect();
+      if (currentWalletProvider && window.walletConnected) {
+        await currentWalletProvider.disconnect();
       }
       
       // Reset all state
@@ -701,9 +749,10 @@ $(function() {
       degenParkTokens = null;
       username = null;
       window.username = null;
+      currentWalletProvider = null;
+      currentWalletType = null;
       
       // Clear UI
-      $walletAddress.text('');
       $usernameDisplay.text('');
       $usernameInput.val('');
       $currentInput = $usernameInput;
@@ -713,8 +762,11 @@ $(function() {
       $('.username.page').hide();
       $('.wallet.page').show();
       
-      // Reset button
-      $('.connectWallet').text('Connect Wallet').prop('disabled', false);
+      // Reset buttons to enabled state and restore original text with icons
+      $('.connectWallet').prop('disabled', false);
+      $('#phantom').html('<img src="data:image/svg+xml;base64,PHN2ZyBmaWxsPSJub25lIiBoZWlnaHQ9IjM0IiB3aWR0aD0iMzQiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGxpbmVhckdyYWRpZW50IGlkPSJhIiB4MT0iLjUiIHgyPSIuNSIgeTE9IjAiIHkyPSIxIj48c3RvcCBvZmZzZXQ9IjAiIHN0b3AtY29sb3I9IiM1MzRiYjEiLz48c3RvcCBvZmZzZXQ9IjEiIHN0b3AtY29sb3I9IiM1NTFiZjkiLz48L2xpbmVhckdyYWRpZW50PjxsaW5lYXJHcmFkaWVudCBpZD0iYiIgeDE9Ii41IiB4Mj0iLjUiIHkxPSIwIiB5Mj0iMSI+PHN0b3Agb2Zmc2V0PSIwIiBzdG9wLWNvbG9yPSIjZmZmIi8+PHN0b3Agb2Zmc2V0PSIxIiBzdG9wLWNvbG9yPSIjZmZmIiBzdG9wLW9wYWNpdHk9Ii44MiIvPjwvbGluZWFyR3JhZGllbnQ+PGNpcmNsZSBjeD0iMTciIGN5PSIxNyIgZmlsbD0idXJsKCNhKSIgcj0iMTciLz48cGF0aCBkPSJtMjEuMjc5MSAxMi4zNzQzYy4yOTUxLS40OTQ2LjE4MDMtMS4xMjY3LS4yNTEzLTEuNDY1OGwtLjU3NDgtLjQ1MTljLS4zNzE5LS4yOTI1LS44ODUyLS4yOTA2LTEuMjU0OC4wMDMzLS4zNjk2LjI5MzgtLjg5NzMuMjk5Ni0xLjI3MzMuMDEzNHMtLjg5MDgtLjI2ODgtMS4yODQyLjAwMzRjLS4zOTM0LjI3MjMtLjkyODEuMjk5MS0xLjMyNjMuMDc2LS4zOTgxLS4yMjMxLS45MTYzLS4yMDQtMS4zMDM0LjA0OGwtLjU2MS40NTQyYy0uNDQzMi4zNTgxLS41NTUxLjk5NTItLjI1OTQgMS40NjE1bC0uMTkzNC4xMDQ1LS4xNDM2LS4wMjE2Yy0uMzg1NC0uMDU4LS43MDA1LjI2OTEtLjcwNzguNjYyNmwtLjAzNDcgMS44NzQ5Yy0uMDA0OS4yNjYyLjE5MDguNDc4OS40NDcxLjUwMjguMzE4Ni4wMjk3LjU5NzctLjE5NDMuNjI3Mi0uNTE4Ny4wMjk1LS4zMjQzLS4yMzc0LS42MDY1LS41OTU2LS42MzAyeiIgZmlsbD0idXJsKCNiKSIvPjwvc3ZnPg==" alt="Phantom" /> Connect Phantom');
+      $('#solflare').html('<img src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzIiIGhlaWdodD0iMzIiIHZpZXdCb3g9IjAgMCAzMiAzMiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iMTYiIGN5PSIxNiIgcj0iMTYiIGZpbGw9InVybCgjcGFpbnQwX2xpbmVhcl8zODdfMjI0KSIvPgo8ZGVmcz4KPGxpbmVhckdyYWRpZW50IGlkPSJwYWludDBfbGluZWFyXzM4N18yMjQiIHgxPSIxNiIgeTE9IjAiIHgyPSIxNiIgeTI9IjMyIiBncmFkaWVudFVuaXRzPSJ1c2VyU3BhY2VPblVzZSI+CjxzdG9wIHN0b3AtY29sb3I9IiNGRkM5NDciLz4KPHN0b3Agb2Zmc2V0PSIxIiBzdG9wLWNvbG9yPSIjRkZBMzM4Ii8+CjwvbGluZWFyR3JhZGllbnQ+CjwvZGVmcz4KPHN2ZyB3aWR0aD0iMTYiIGhlaWdodD0iMTYiIHZpZXdCb3g9IjAgMCAxNiAxNiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTEyIDRINEMzLjQ0NzcgNCAzIDQuNDQ3NzIgMyA1VjExQzMgMTEuNTUyMyAzLjQ0NzcgMTIgNCAxMkgxMkMxMi41NTIzIDEyIDEzIDExLjU1MjMgMTMgMTFWNUMxMyA0LjQ0NzcyIDEyLjU1MjMgNCAxMiA0WiIgZmlsbD0id2hpdGUiLz4KPHBhdGggZD0iTTEwIDZINkM1LjQ0NzcyIDYgNSA2LjQ0NzcyIDUgN1Y5QzUgOS41NTIyOCA1LjQ0NzcyIDEwIDYgMTBIMTBDMTAuNTUyMyAxMCAxMSA5LjU1MjI4IDExIDlWN0MxMSA2LjQ0NzcyIDEwLjU1MjMgNiAxMCA2WiIgZmlsbD0iI0ZGQzk0NyIvPgo8L3N2Zz4KPC9zdmc+Cg==" alt="Solflare" /> Connect Solflare');
+      $('#backpack').html('<span>🎒</span> Connect Backpack');
       $('.usernameInput').prop('readonly', false);
       $('.setUsername').text('Set Username');
       
@@ -746,7 +798,9 @@ $(function() {
 
   // Wallet connection handlers
   $(document).on('click', '.connectWallet', function() {
-    connectWallet();
+    const walletType = $(this).attr('id');
+    console.log('[Wallet] Button clicked, wallet type:', walletType);
+    connectWallet(walletType);
   });
 
   // Disconnect wallet
@@ -760,18 +814,18 @@ $(function() {
   });
 
   const addParticipantsMessage = (data) => {
-    let message = '';
-    if (data.numUsers === 1) {
-      message = "Welcome! You're the only one here.";
-    } else {
-      message = `Welcome! There ${data.numUsers === 2 ? 'is' : 'are'} ${data.numUsers} participants.`;
+    // Only show participant count if there are multiple users
+    if (data.numUsers > 1) {
+      const message = `Welcome! There ${data.numUsers === 2 ? 'is' : 'are'} ${data.numUsers} participants.`;
+      addChatMessage({
+        username: 'System',
+        message: message,
+        isAdmin: true,
+        walletAddress: 'system',
+        avatar: null
+      });
     }
-    
-    addChatMessage({
-      username: 'System',
-      message: message,
-      isAdmin: true
-    });
+    // Skip the "You're the only one here" message - it's annoying
   }
 
   // Username validation
@@ -807,6 +861,12 @@ $(function() {
         userData.isDegenPark = true;
         userData.avatar = window.degenParkProfile.avatar;
         console.log('[Username] Using DegenPark profile data');
+        
+        // Add level data if available
+        if (window.degenParkLevel) {
+          userData.level = window.degenParkLevel.level;
+          console.log('[Username] Including level data:', window.degenParkLevel.level);
+        }
       }
 
       // Add auth tokens if available
@@ -1070,13 +1130,14 @@ $(function() {
         return;
       }
       
-      // Prepare message data
+      // Prepare message data with avatar
       const messageData = {
         username, 
         message, 
         walletAddress,
         replyTo: replyingTo,
-        isAdmin: window.isCurrentUserAdmin  // Add current user's admin status
+        isAdmin: window.isCurrentUserAdmin,
+        avatar: window.degenParkProfile?.avatar || null  // Include current user's avatar
       };
       
       addChatMessage(messageData);
@@ -1387,17 +1448,58 @@ $(function() {
       hideWelcomeMessage();
     }
 
-    // Generate avatar
-    const avatar = generateAvatar(data.walletAddress, data.username);
+    // Generate avatar - use DegenPark avatar if available, otherwise generate
+    console.log('[Avatar] Message data avatar:', data.avatar, 'for user:', data.username);
+    console.log('[Avatar] Wallet address:', data.walletAddress);
+    let avatar;
+    if (data.avatar) {
+      // Use DegenPark profile picture
+      avatar = `<img src="${data.avatar}" alt="${data.username}" class="user-avatar" onerror="console.log('Avatar failed to load:', this.src)" />`;
+      console.log('[Avatar] Using DegenPark avatar for', data.username, ':', data.avatar);
+    } else if (data.walletAddress) {
+      // Generate fallback avatar
+      avatar = generateAvatar(data.walletAddress, data.username);
+      console.log('[Avatar] Using generated avatar for', data.username);
+    } else {
+      // No wallet address, use simple fallback
+      const initials = data.username.substring(0, 2).toUpperCase();
+      avatar = `<div class="user-avatar" style="background: linear-gradient(135deg, #6366f1, #8b5cf6)">${initials}</div>`;
+      console.log('[Avatar] Using simple fallback avatar for', data.username);
+    }
+    
+    console.log('[Avatar] Final avatar HTML:', avatar);
 
-    // Create username with admin star
+    // Create username with badges
     let usernameText = data.username;
+    let usernameBadges = '';
+    
+    // Add DegenPark and level badges
+    const socketData = window.activeSockets && window.activeSockets[data.username];
+    const isDegenParkUser = socketData && socketData.isDegenPark;
+    const userLevel = socketData && socketData.level;
+    
+    // For current user, use their own data
+    if (data.username === username && window.degenParkProfile) {
+      usernameBadges += '<span class="msg-degenpark-badge" title="DegenPark Verified">DP</span>';
+      if (window.degenParkLevel) {
+        usernameBadges += `<span class="msg-level-badge" title="Level ${window.degenParkLevel.level}">LVL ${window.degenParkLevel.level}</span>`;
+      }
+    }
+    // For other users, use socket data if available
+    else if (isDegenParkUser) {
+      usernameBadges += '<span class="msg-degenpark-badge" title="DegenPark Verified">DP</span>';
+      if (userLevel !== undefined) {
+        usernameBadges += `<span class="msg-level-badge" title="Level ${userLevel}">LVL ${userLevel}</span>`;
+      }
+    }
+    
+    // Add admin star
     if (isMessageFromAdmin) {
       usernameText += ' ★';
     }
 
     const $usernameDiv = $('<span class="username"/>')
-      .text(usernameText)
+      .html(`${usernameBadges}${usernameText}`)
       .css('color', getUsernameColor(data.username));
     
     // Make username clickable if wallet address is available
@@ -1440,22 +1542,29 @@ $(function() {
     
     console.log('Final message classes:', $messageDiv.attr('class'));
 
-    // Add reply context if this is a reply
+    // Build reply context for Discord layout
+    let replyContextHtml = '';
     if (data.replyTo && !data.typing) {
-      const $replyContext = $('<div class="reply-context">')
-        .text(`↳ Replying to ${data.replyTo.username}: ${data.replyTo.message}`);
-      $messageDiv.append($replyContext);
+      replyContextHtml = `<div class="reply-context">↳ Replying to ${data.replyTo.username}: ${data.replyTo.message}</div>`;
     }
 
-    // Create message with compact structure
+    // Create message with Discord-like structure
     $messageDiv.html(`
-      <div class="message-header">
-        ${avatar}
-        <span class="username" style="color: ${getUsernameColor(data.username)}">${usernameText}</span>
-        <span class="message-status status-sent">✓</span>
-      </div>
-      <div class="message-content">
-        ${messageContent}
+      <div class="message-container">
+        <div class="message-avatar">
+          ${avatar}
+        </div>
+        <div class="message-main">
+          ${replyContextHtml}
+          <div class="message-header">
+            <span class="username" style="color: ${getUsernameColor(data.username)}">${usernameText}</span>
+            ${usernameBadges}
+            <span class="message-status status-sent">✓</span>
+          </div>
+          <div class="message-content">
+            ${messageContent}
+          </div>
+        </div>
       </div>
     `);
 
@@ -1605,14 +1714,46 @@ $(function() {
     });
   }
 
-  // Gets the color of a username through our hash function
+  // Gets the color of a username based on level/rank system
   const getUsernameColor = (username) => {
-    let hash = 7;
-    for (let i = 0; i < username.length; i++) {
-      hash = username.charCodeAt(i) + (hash << 5) - hash;
+    // Check if user has DegenPark level data
+    const socketData = window.activeSockets && window.activeSockets[username];
+    const userLevel = socketData && socketData.level;
+    const isDegenPark = socketData && socketData.isDegenPark;
+    
+    // For current user, use their own level data
+    if (username === window.username && window.degenParkLevel) {
+      return getLevelColor(window.degenParkLevel.level);
     }
-    const index = Math.abs(hash % COLORS.length);
-    return COLORS[index];
+    
+    // For other users with level data
+    if (userLevel !== undefined) {
+      return getLevelColor(userLevel);
+    }
+    
+    // For non-DegenPark users or users without level data, use white (Guest)
+    if (!isDegenPark) {
+      return '#ffffff'; // White for guests
+    }
+    
+    // Fallback to white for DegenPark users without level data
+    return '#ffffff';
+  };
+  
+  // Get color based on level
+  const getLevelColor = (level) => {
+    if (level >= 41) {
+      return '#a855f7'; // Diamond - Shiny Purple
+    } else if (level >= 31) {
+      return '#10b981'; // Platinum - Green
+    } else if (level >= 21) {
+      return '#f59e0b'; // Gold
+    } else if (level >= 11) {
+      return '#6b7280'; // Silver
+    } else if (level >= 0) {
+      return '#cd7c32'; // Bronze
+    }
+    return '#ffffff'; // Default white
   }
 
   // Generate user avatar from wallet address
@@ -1840,8 +1981,27 @@ $(function() {
           <span class="connection-text">Offline</span>
         </div>
       `);
-      // Add to userControls before disconnect button (insert before last element)
-      $('.userControls').children().last().before($statusIndicator);
+              // Add Messages button to status bar
+        const $messagesBtn = $(`
+          <button class="status-btn messages-btn" id="messages-mode-btn" title="Open Messages" style="display: flex !important;">
+            <span class="status-icon">💬</span>
+            <span class="status-text">Messages</span>
+            <span class="dm-count-badge hidden">0</span>
+          </button>
+        `);
+        
+        $messagesBtn.on('click', () => {
+          console.log('[Messages] Messages button clicked');
+          openMessagesInterface();
+        });
+        
+        // Add to userControls before disconnect button (insert before last element)
+        $('.userControls').children().last().before($statusIndicator);
+        $('.userControls').children().last().before($messagesBtn);
+        
+        console.log('[Status] Messages button added to userControls');
+        console.log('[Status] Messages button visible:', $messagesBtn.is(':visible'));
+        console.log('[Status] Messages button display:', $messagesBtn.css('display'));
     }
     
     const $dot = $statusIndicator.find('.connection-dot');
@@ -1899,7 +2059,30 @@ $(function() {
   $inputMessage.on('input', () => {
     updateTyping();
     checkForMentionTrigger();
+    updateCharacterCounter();
   });
+
+  // Update character counter
+  const updateCharacterCounter = () => {
+    const currentLength = $inputMessage.val().length;
+    const maxLength = 60;
+    const remaining = maxLength - currentLength;
+    
+    const $charCount = $('.char-count');
+    const $counter = $('.character-counter');
+    
+    $charCount.text(currentLength);
+    
+    // Remove all warning classes
+    $counter.removeClass('warning danger');
+    
+    // Add warning colors based on remaining characters
+    if (remaining <= 5) {
+      $counter.addClass('danger');
+    } else if (remaining <= 15) {
+      $counter.addClass('warning');
+    }
+  };
 
   // Real-time username validation
   $usernameInput.on('input', () => {
@@ -1974,6 +2157,22 @@ $(function() {
       isOnline: true
     });
     
+    // Populate knownUsers with ALL historical users from server
+    if (data.allKnownUsers && Array.isArray(data.allKnownUsers)) {
+      data.allKnownUsers.forEach(user => {
+        knownUsers.set(user.username, {
+          walletAddress: user.walletAddress,
+          isAdmin: user.isAdmin,
+          isDegenPark: user.isDegenPark,
+          avatar: user.avatar,
+          level: user.level,
+          lastSeen: Date.now(),
+          isOnline: user.isOnline
+        });
+      });
+      console.log('[Login] Loaded', data.allKnownUsers.length, 'historical users for DM search');
+    }
+    
     console.log('[Login] Successfully logged in. Admin:', data.isAdmin, 'DegenPark:', data.isDegenPark);
     
     // Update UI with user info
@@ -1982,7 +2181,7 @@ $(function() {
     
     // Update admin indicator if admin
     if (data.isAdmin) {
-      $chatContainer.addClass('admin-chat');
+      $('.chat.page').addClass('admin-chat');
       console.log('[Login] Admin privileges activated');
     }
     
@@ -2015,8 +2214,16 @@ $(function() {
       walletAddress: data.walletAddress,
       isAdmin: data.isAdmin,
       isDegenPark: data.isDegenPark,
-      avatar: data.avatar
+      avatar: data.avatar,
+      level: data.level // Add level if provided
     };
+    console.log('[User Joined] Added', data.username, 'to activeSockets. Total users:', Object.keys(window.activeSockets).length);
+    
+    // If this is the current user and we have their level data, update it
+    if (data.username === username && window.degenParkLevel) {
+      window.activeSockets[data.username].level = window.degenParkLevel.level;
+      console.log(`[Chat] Updated current user level in activeSockets: ${window.degenParkLevel.level}`);
+    }
     
     // Also add to known users for offline messaging
     knownUsers.set(data.username, {
@@ -2024,6 +2231,7 @@ $(function() {
       isAdmin: data.isAdmin,
       isDegenPark: data.isDegenPark,
       avatar: data.avatar,
+      level: data.level,
       lastSeen: Date.now(),
       isOnline: true
     });
@@ -2036,7 +2244,9 @@ $(function() {
     addChatMessage({
       username: 'System',
       message: `${data.username} joined the chat`,
-      isAdmin: true
+      isAdmin: true,
+      walletAddress: 'system', // Give system messages a fake wallet for avatar generation
+      avatar: null
     });
     
     playNotificationSound('join');
@@ -2048,6 +2258,7 @@ $(function() {
     // Remove from active sockets (online users)
     if (window.activeSockets && window.activeSockets[data.username]) {
       delete window.activeSockets[data.username];
+      console.log('[User Left] Removed', data.username, 'from activeSockets. Remaining users:', Object.keys(window.activeSockets));
     }
     
     // Mark as offline in known users (don't remove completely)
@@ -2065,7 +2276,9 @@ $(function() {
     addChatMessage({
       username: 'System', 
       message: `${data.username} left the chat`,
-      isAdmin: true
+      isAdmin: true,
+      walletAddress: 'system', // Give system messages a fake wallet for avatar generation
+      avatar: null
     });
     
     playNotificationSound('leave');
@@ -2114,6 +2327,16 @@ $(function() {
       // Update DM count if menu is open
       if (menuOpen) {
         updateDMCount();
+      }
+      
+      // Refresh DM interface if it's open
+      if ($('#dm-interface').length > 0) {
+        setTimeout(() => populateConversationList(), 100);
+      }
+      
+      // Refresh messages interface if it's open
+      if (isMessagesMode && $('#messages-interface').length > 0) {
+        setTimeout(() => populateMessagesConversationList(), 100);
       }
       
       // Show notification
@@ -2297,22 +2520,80 @@ $(function() {
 
 
   
-  // Add expand button first
+  // COMPLETELY REBUILT EXPAND BUTTON - NUCLEAR OPTION
   let isExpanded = false;
-  const $expandButton = $(`
-    <div class="expand-button" title="Expand chat">
-      ⤢
-    </div>
-  `);
+  
+  // Create expand icon that DEFINITELY works
+  const createWorkingExpandButton = () => {
+    console.log('[EXPAND] Creating working expand icon');
+    
+    const $btn = $('<div></div>');
+    $btn.attr('title', 'Expand chat');
+    $btn.addClass('working-expand-icon');
+    $btn.html('⤢');
+    
+    // Force styling - clean icon style
+    $btn.css({
+      'display': 'flex',
+      'align-items': 'center',
+      'justify-content': 'center',
+      'width': '24px',
+      'height': '24px',
+      'background': 'rgba(99, 102, 241, 0.8)',
+      'color': 'white', 
+      'border': 'none',
+      'border-radius': '4px',
+      'font-size': '14px',
+      'cursor': 'pointer',
+      'transition': 'all 0.2s ease',
+      'opacity': '0.8'
+    });
+    
+         // Simple click handler - FIXED TO EXPAND ACTUAL WIDGET
+     $btn.click(function() {
+       console.log('[EXPAND] Button clicked!');
+       isExpanded = !isExpanded;
+       
+       if (isExpanded) {
+         // Target the iframe or the parent window
+         if (window.parent !== window) {
+           // We're in an iframe - tell parent to expand us
+           window.parent.postMessage({
+             type: 'widget_expanded',
+             expanded: true
+           }, '*');
+         }
+         // Also add class to body for internal styling
+         $('body').addClass('widget-expanded');
+         $btn.html('⤡');
+         console.log('[EXPAND] Expanded - widget should be full height on right');
+       } else {
+         // Minimize
+         if (window.parent !== window) {
+           window.parent.postMessage({
+             type: 'widget_expanded', 
+             expanded: false
+           }, '*');
+         }
+         $('body').removeClass('widget-expanded');
+         $btn.html('⤢');
+         console.log('[EXPAND] Minimized - widget back to normal size');
+       }
+     });
+    
+    return $btn;
+  };
   
   // Function to properly expand/collapse widget
   const toggleWidget = (expand) => {
     isExpanded = expand;
+    console.log('[ToggleWidget] Expanding:', expand);
     
     if (isExpanded) {
       // Expand to full height, stick to right side
       $('body').addClass('widget-expanded');
-      $expandButton.text('⤡').attr('title', 'Minimize chat');
+      $('.expand-button, .expand-button-static').html('⤡ Minimize').attr('title', 'Minimize chat');
+      console.log('[ToggleWidget] Widget expanded, class added to body');
       
       // Notify parent window about expansion (if in iframe)
       if (window.parent !== window) {
@@ -2324,7 +2605,8 @@ $(function() {
     } else {
       // Return to normal size
       $('body').removeClass('widget-expanded');
-      $expandButton.text('⤢').attr('title', 'Expand chat');
+      $('.expand-button, .expand-button-static').html('⤢ Expand').attr('title', 'Expand chat');
+      console.log('[ToggleWidget] Widget minimized, class removed from body');
       
       // Notify parent window about collapse (if in iframe)
       if (window.parent !== window) {
@@ -2336,21 +2618,60 @@ $(function() {
     }
   };
 
-  $expandButton.on('click', () => {
-    toggleWidget(!isExpanded);
-  });
+  // Remove old expand click handlers - they're built into the button creation now
   
   // Sound toggle moved to hamburger menu
   
   // Add to userControls in proper order: expand button, then user count and connection status
-  $('.userControls').prepend($expandButton);
+  console.log('[Init] Adding expand button to userControls');
+  console.log('[Init] userControls elements found:', $('.userControls').length);
+  
+  // NUCLEAR OPTION: Force add expand button NOW
+  const forceAddExpandButton = () => {
+    console.log('[EXPAND] Force adding expand button');
+    
+    const $userControls = $('.userControls');
+    if ($userControls.length === 0) {
+      console.log('[EXPAND] No userControls found!');
+      return;
+    }
+    
+    // Remove any existing expand buttons  
+          $userControls.find('.working-expand-icon, .working-expand-btn, .expand-btn, .expand-button').remove();
+    
+    // Create and add new button
+    const $newBtn = createWorkingExpandButton();
+    $userControls.prepend($newBtn);
+    
+    console.log('[EXPAND] Button added to userControls');
+    console.log('[EXPAND] userControls HTML:', $userControls.html());
+  };
+  
+  // Add expand button immediately and aggressively
+  setTimeout(() => {
+    console.log('[EXPAND] Initial attempt');
+    forceAddExpandButton();
+  }, 100);
+  
+  setTimeout(() => {
+    console.log('[EXPAND] Retry attempt');
+    forceAddExpandButton();
+  }, 1000);
+  
+  // Keep trying every 5 seconds if missing
+  setInterval(() => {
+    if ($('.userControls .working-expand-icon').length === 0) {
+      console.log('[EXPAND] Icon missing, re-adding');
+      forceAddExpandButton();
+    }
+  }, 5000);
 
   // Hamburger menu elements
   const $hamburgerButton = $('.hamburger-button');
   const $menuDropdown = $('.menu-dropdown');
   const $menuSoundToggle = $('.menu-item.sound-toggle');
   const $disconnectMenuBtn = $('.disconnect-menu-btn');
-  const $dmHeaderBtn = $('#direct-messages-header');
+      const $dmHeaderBtn = $('#direct-messages-header');
   const $dmCount = $('.dm-count');
 
   // Menu state
@@ -2381,16 +2702,23 @@ $(function() {
       playNotificationSound('click'); // Test sound
     });
 
-    // Direct message search trigger
-    $dmHeaderBtn.on('click', () => {
+    // Direct messages trigger (from hamburger menu) - with conversation history
+    const $directMessagesBtn = $('#direct-messages-header');
+    $directMessagesBtn.on('click', () => {
       closeMenu();
-      openDMSearchModal();
+      openDirectMessagesWithHistory();
     });
 
     // Disconnect from menu
     $disconnectMenuBtn.on('click', () => {
       closeMenu();
       disconnectWallet();
+    });
+
+    // Settings modal
+    $('#settings-item').on('click', () => {
+      closeMenu();
+      openSettingsModal();
     });
 
     // Prevent menu from closing when clicking inside dropdown
@@ -2444,10 +2772,552 @@ $(function() {
     } else {
       $dmCount.addClass('hidden');
     }
+    
+    // Also update messages badge
+    updateMessagesBadge();
   };
 
-  // Direct Message functionality  
-  const openDMSearchModal = () => {
+  // Update user level in activeSockets (called when level data becomes available)
+  const updateUserLevelInSockets = (username, level) => {
+    if (window.activeSockets && window.activeSockets[username]) {
+      window.activeSockets[username].level = level;
+      console.log(`[Chat] Updated level for ${username} in activeSockets: ${level}`);
+    }
+  };
+
+  // Settings Modal functionality
+  const openSettingsModal = () => {
+    const $modal = $('#settings-modal');
+    
+    // Show/hide DegenPark settings based on authentication
+    if (window.degenParkProfile) {
+      $('#degenpark-settings').show();
+      $('#new-username').val(window.degenParkProfile.username);
+      
+      // Update level info
+      if (window.degenParkLevel) {
+        const levelText = `Level ${window.degenParkLevel.level} • ${window.degenParkLevel.points} points • Rank #${window.degenParkLevel.rank}`;
+        $('#level-info .level-text').text(levelText);
+      } else {
+        $('#level-info .level-text').text('Loading level data...');
+      }
+    } else {
+      $('#degenpark-settings').hide();
+    }
+    
+    $modal.show();
+  };
+
+  const closeSettingsModal = () => {
+    $('#settings-modal').hide();
+  };
+
+  const updateUsername = async () => {
+    const newUsername = $('#new-username').val().trim();
+    const $updateBtn = $('#update-username-btn');
+    
+    if (!newUsername) {
+      alert('Please enter a username');
+      return;
+    }
+    
+    if (newUsername === window.degenParkProfile.username) {
+      alert('This is already your current username');
+      return;
+    }
+    
+    try {
+      $updateBtn.prop('disabled', true).text('Updating...');
+      
+      const updatedUser = await updateDegenParkUsername(newUsername);
+      
+      // Update local data
+      username = updatedUser.username;
+      window.username = username;
+      localStorage.setItem('chatUsername', username);
+      
+      // Update UI displays
+      updateUserDisplay();
+      $('#new-username').val(updatedUser.username);
+      
+      // Notify other chat users of the name change
+      if (socket && socket.connected) {
+        socket.emit('username changed', {
+          oldUsername: window.degenParkProfile.username,
+          newUsername: updatedUser.username,
+          wallet: window.walletAddress
+        });
+      }
+      
+      alert(`Username successfully updated to "${updatedUser.username}"`);
+      closeSettingsModal();
+      
+    } catch (error) {
+      console.error('[Settings] Username update failed:', error);
+      alert(`Failed to update username: ${error.message}`);
+    } finally {
+      $updateBtn.prop('disabled', false).text('Update');
+    }
+  };
+
+  // SIMPLIFIED MESSAGING: Use single modal interface like new message
+  let currentDMUser = null;
+  let availableDMUsers = new Map();
+  
+  // Update messages badge count
+  const updateMessagesBadge = () => {
+    let totalUnread = 0;
+    unreadDMs.forEach(count => totalUnread += count);
+    
+    const $badge = $('.dm-count-badge');
+    if (totalUnread > 0) {
+      $badge.text(totalUnread).removeClass('hidden');
+    } else {
+      $badge.addClass('hidden');
+    }
+  };
+  
+    const openMessagesInterface = () => {
+    // Open direct messages with conversation history
+    openDirectMessagesWithHistory();
+  };
+  
+  // Direct Messages with conversation history
+  const openDirectMessagesWithHistory = () => {
+    const conversations = [];
+    
+    // Get existing conversations
+    directMessages.forEach((messages, username) => {
+      const userData = knownUsers.get(username) || {};
+      const unreadCount = unreadDMs.get(username) || 0;
+      const lastMessage = messages[messages.length - 1];
+      
+      conversations.push({
+        username: username,
+        userData: userData,
+        unreadCount: unreadCount,
+        lastMessage: lastMessage,
+        timestamp: lastMessage.timestamp
+      });
+    });
+    
+    // Sort by most recent message
+    conversations.sort((a, b) => b.timestamp - a.timestamp);
+    
+    const modalHtml = `
+      <div class="dm-modal-overlay" id="dm-history-modal">
+        <div class="dm-modal">
+          <div class="dm-modal-header">
+            <h3>Direct Messages</h3>
+            <button class="dm-modal-close">×</button>
+          </div>
+          <div class="dm-modal-body">
+            <div class="dm-conversations-list">
+              ${conversations.length === 0 ? 
+                '<div class="dm-no-conversations">No conversations yet.<br><button class="dm-start-new-btn">Start New Conversation</button></div>' :
+                conversations.map(conv => {
+                  const isOnline = conv.userData.isOnline;
+                  const avatar = conv.userData.avatar;
+                  const unreadBadge = conv.unreadCount > 0 ? `<span class="dm-unread-badge">${conv.unreadCount}</span>` : '';
+                  const timeAgo = formatTimeAgo(conv.timestamp);
+                  const preview = conv.lastMessage.message.length > 50 ? 
+                    conv.lastMessage.message.substring(0, 50) + '...' : conv.lastMessage.message;
+                  
+                  let avatarHtml;
+                  if (avatar) {
+                    avatarHtml = `<img src="${avatar}" alt="${conv.username}" class="dm-conv-avatar" />`;
+                  } else {
+                    avatarHtml = `<div class="dm-conv-avatar-placeholder">${conv.username.charAt(0).toUpperCase()}</div>`;
+                  }
+                  
+                  return `
+                    <div class="dm-conversation-item" data-username="${conv.username}" data-wallet="${conv.userData.walletAddress}">
+                      <div class="dm-conv-avatar-container">
+                        ${avatarHtml}
+                        <div class="dm-conv-status ${isOnline ? 'online' : 'offline'}"></div>
+                      </div>
+                      <div class="dm-conv-details">
+                        <div class="dm-conv-header">
+                          <span class="dm-conv-username">${conv.username}</span>
+                          <span class="dm-conv-time">${timeAgo}</span>
+                          ${unreadBadge}
+                        </div>
+                        <div class="dm-conv-preview">${conv.lastMessage.fromSelf ? 'You: ' : ''}${preview}</div>
+                      </div>
+                    </div>
+                  `;
+                }).join('')
+              }
+              <div class="dm-new-conversation-option">
+                <button class="dm-start-new-btn">+ Start New Conversation</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+    
+    $('body').append(modalHtml);
+    
+    // Event handlers
+    $('.dm-modal-close').on('click', () => {
+      $('#dm-history-modal').remove();
+      if (connected && $inputMessage.length) {
+        setTimeout(() => $inputMessage.focus(), 100);
+      }
+    });
+    
+    $('.dm-modal-overlay').on('click', function(e) {
+      if (e.target === this) {
+        $('#dm-history-modal').remove();
+      }
+    });
+    
+    // Conversation item clicks
+    $('.dm-conversation-item').on('click', function() {
+      const username = $(this).data('username');
+      const wallet = $(this).data('wallet');
+      $('#dm-history-modal').remove();
+      openDirectMessage(username, wallet, knownUsers.get(username)?.isOnline || false);
+    });
+    
+    // Start new conversation buttons
+    $('.dm-start-new-btn').on('click', () => {
+      $('#dm-history-modal').remove();
+      openNewMessageModal();
+    });
+    
+    // Prevent events from reaching main chat
+    $('#dm-history-modal').on('keydown keyup keypress click', function(e) {
+      e.stopPropagation();
+    });
+  };
+  
+  // Helper function for time formatting (defined once, used everywhere)
+
+  // REMOVED: All complex DM modal code - using simple new message UI only
+
+  // REMOVED: Legacy full-screen interface
+  
+  // REMOVED: Hide messages interface
+  
+  // Populate conversation list for messages mode
+  const populateMessagesConversationList = () => {
+    const $conversations = $('#messages-conversations');
+    $conversations.empty();
+    
+    // Get all conversations
+    const conversations = [];
+    directMessages.forEach((messages, username) => {
+      if (messages.length > 0) {
+        const lastMessage = messages[messages.length - 1];
+        const userData = knownUsers.get(username) || {};
+        const unreadCount = unreadDMs.get(username) || 0;
+        
+        conversations.push({
+          username: username,
+          lastMessage: lastMessage,
+          userData: userData,
+          unreadCount: unreadCount,
+          timestamp: lastMessage.timestamp
+        });
+      }
+    });
+    
+    // Sort by most recent message
+    conversations.sort((a, b) => b.timestamp - a.timestamp);
+    
+    if (conversations.length === 0) {
+      $conversations.append('<div class="messages-no-conversations">No conversations yet<br><small>Click + to start a new message</small></div>');
+      return;
+    }
+    
+    // Create conversation items
+    conversations.forEach(conv => {
+      const isOnline = conv.userData.isOnline;
+      const avatar = conv.userData.avatar;
+      const lastMessageText = conv.lastMessage.message.length > 40 ? 
+        conv.lastMessage.message.substring(0, 40) + '...' : conv.lastMessage.message;
+      const timeAgo = formatTimeAgo(conv.lastMessage.timestamp);
+      
+      let avatarHtml;
+      if (avatar) {
+        avatarHtml = `<img src="${avatar}" alt="${conv.username}" class="msg-conv-avatar" />`;
+      } else {
+        avatarHtml = `<div class="msg-conv-avatar-text">${conv.username.charAt(0).toUpperCase()}</div>`;
+      }
+      
+      const $convItem = $(`
+        <div class="msg-conversation-item" data-username="${conv.username}" data-wallet="${conv.userData.walletAddress}">
+          <div class="msg-conv-avatar-container">
+            ${avatarHtml}
+            <div class="msg-conv-status ${isOnline ? 'online' : 'offline'}"></div>
+          </div>
+          <div class="msg-conv-info">
+            <div class="msg-conv-header">
+              <span class="msg-conv-username">${conv.username}</span>
+              <span class="msg-conv-time">${timeAgo}</span>
+            </div>
+            <div class="msg-conv-preview">
+              ${conv.lastMessage.fromSelf ? 'You: ' : ''}${lastMessageText}
+            </div>
+          </div>
+          ${conv.unreadCount > 0 ? `<div class="msg-conv-unread">${conv.unreadCount}</div>` : ''}
+        </div>
+      `);
+      
+      $convItem.on('click', function() {
+        openMessagesConversation(conv.username, conv.userData.walletAddress, isOnline);
+      });
+      
+      $conversations.append($convItem);
+    });
+  };
+  
+  // Open conversation in messages mode
+  const openMessagesConversation = (username, walletAddress, isOnline) => {
+    const $chatArea = $('#messages-chat-area');
+    
+    // Mark conversation as active
+    $('.msg-conversation-item').removeClass('active');
+    $(`.msg-conversation-item[data-username="${username}"]`).addClass('active');
+    
+    // Mark as read
+    unreadDMs.delete(username);
+    updateDMCount();
+    updateMessagesBadge();
+    
+    // Get conversation
+    const conversation = directMessages.get(username) || [];
+    
+    const chatHtml = `
+      <div class="messages-conversation-header">
+        <div class="msg-conv-user-info">
+          <span class="msg-conv-name">${username}</span>
+          <span class="msg-conv-status-text">${isOnline ? '🟢 Online' : '⚫ Offline'}</span>
+        </div>
+      </div>
+      <div class="messages-messages-container" id="messages-messages-view">
+        <!-- Messages will go here -->
+      </div>
+      <div class="messages-input-area">
+        <input type="text" id="messages-conversation-input" placeholder="${isOnline ? 'Type a message...' : 'Message (will be delivered when online)...'}" maxlength="60" />
+        <button id="messages-send-btn">📤</button>
+      </div>
+    `;
+    
+    $chatArea.html(chatHtml);
+    
+    // Load messages
+    const $messagesContainer = $('#messages-messages-view');
+    conversation.forEach(msg => {
+      const $msgDiv = $(`
+        <div class="msg-msg ${msg.fromSelf ? 'sent' : 'received'}">
+          <div class="msg-msg-content">${msg.message}</div>
+          <div class="msg-msg-time">${new Date(msg.timestamp).toLocaleTimeString()}</div>
+        </div>
+      `);
+      $messagesContainer.append($msgDiv);
+    });
+    
+    // Scroll to bottom
+    $messagesContainer.scrollTop($messagesContainer[0].scrollHeight);
+    
+    // Send message handlers
+    const sendHandler = () => {
+      const message = $('#messages-conversation-input').val().trim();
+      if (message) {
+        sendDirectMessage(username, walletAddress, message);
+        $('#messages-conversation-input').val('');
+        
+        // Add to UI immediately
+        const $msgDiv = $(`
+          <div class="msg-msg sent">
+            <div class="msg-msg-content">${message}</div>
+            <div class="msg-msg-time">${new Date().toLocaleTimeString()}</div>
+          </div>
+        `);
+        $messagesContainer.append($msgDiv);
+        $messagesContainer.scrollTop($messagesContainer[0].scrollHeight);
+        
+        // Update conversation list
+        setTimeout(() => populateMessagesConversationList(), 100);
+      }
+    };
+    
+    $('#messages-send-btn').on('click', sendHandler);
+    $('#messages-conversation-input').on('keypress', function(e) {
+      if (e.which === 13) sendHandler();
+    });
+    
+    // Focus input
+    $('#messages-conversation-input').focus();
+  };
+  
+  // updateMessagesBadge function moved to top for availability
+
+  // ALL COMPLEX DM INTERFACE CODE REMOVED
+  
+  // Populate conversation list
+  const populateConversationList = () => {
+    const $conversations = $('#dm-conversations');
+    $conversations.empty();
+    
+    // Get all conversations
+    const conversations = [];
+    directMessages.forEach((messages, username) => {
+      if (messages.length > 0) {
+        const lastMessage = messages[messages.length - 1];
+        const userData = knownUsers.get(username) || {};
+        const unreadCount = unreadDMs.get(username) || 0;
+        
+        conversations.push({
+          username: username,
+          lastMessage: lastMessage,
+          userData: userData,
+          unreadCount: unreadCount,
+          timestamp: lastMessage.timestamp
+        });
+      }
+    });
+    
+    // Sort by most recent message
+    conversations.sort((a, b) => b.timestamp - a.timestamp);
+    
+    if (conversations.length === 0) {
+      $conversations.append('<div class="dm-no-conversations">No conversations yet</div>');
+      return;
+    }
+    
+    // Create conversation items
+    conversations.forEach(conv => {
+      const isOnline = conv.userData.isOnline;
+      const avatar = conv.userData.avatar;
+      const lastMessageText = conv.lastMessage.message.length > 30 ? 
+        conv.lastMessage.message.substring(0, 30) + '...' : conv.lastMessage.message;
+      const timeAgo = formatTimeAgo(conv.lastMessage.timestamp);
+      
+      let avatarHtml;
+      if (avatar) {
+        avatarHtml = `<img src="${avatar}" alt="${conv.username}" class="dm-conv-avatar" />`;
+      } else {
+        avatarHtml = `<div class="dm-conv-avatar-text">${conv.username.charAt(0).toUpperCase()}</div>`;
+      }
+      
+      const $convItem = $(`
+        <div class="dm-conversation-item" data-username="${conv.username}" data-wallet="${conv.userData.walletAddress}">
+          <div class="dm-conv-avatar-container">
+            ${avatarHtml}
+            <div class="dm-conv-status ${isOnline ? 'online' : 'offline'}"></div>
+          </div>
+          <div class="dm-conv-info">
+            <div class="dm-conv-header">
+              <span class="dm-conv-username">${conv.username}</span>
+              <span class="dm-conv-time">${timeAgo}</span>
+            </div>
+            <div class="dm-conv-preview">
+              ${conv.lastMessage.fromSelf ? 'You: ' : ''}${lastMessageText}
+            </div>
+          </div>
+          ${conv.unreadCount > 0 ? `<div class="dm-conv-unread">${conv.unreadCount}</div>` : ''}
+        </div>
+      `);
+      
+      $convItem.on('click', function() {
+        openConversation(conv.username, conv.userData.walletAddress, isOnline);
+      });
+      
+      $conversations.append($convItem);
+    });
+  };
+  
+  // formatTimeAgo function already defined elsewhere
+  
+  // Open conversation in chat area
+  const openConversation = (username, walletAddress, isOnline) => {
+    const $chatArea = $('#dm-chat-area');
+    
+    // Mark as read
+    unreadDMs.delete(username);
+    updateDMCount();
+    
+    // Get conversation
+    const conversation = directMessages.get(username) || [];
+    
+    const chatHtml = `
+      <div class="dm-conversation-header">
+        <div class="dm-conv-user-info">
+          <span class="dm-conv-name">${username}</span>
+          <span class="dm-conv-status-text">${isOnline ? '🟢 Online' : '⚫ Offline'}</span>
+        </div>
+      </div>
+      <div class="dm-messages-container" id="dm-messages-view">
+        <!-- Messages will go here -->
+      </div>
+      <div class="dm-input-area">
+        <input type="text" id="dm-conversation-input" placeholder="${isOnline ? 'Type a message...' : 'Message (will be delivered when online)...'}" />
+        <button id="dm-send-btn">Send</button>
+      </div>
+    `;
+    
+    $chatArea.html(chatHtml);
+    
+    // Load messages
+    const $messagesContainer = $('#dm-messages-view');
+    conversation.forEach(msg => {
+      const $msgDiv = $(`
+        <div class="dm-msg ${msg.fromSelf ? 'sent' : 'received'}">
+          <div class="dm-msg-content">${msg.message}</div>
+          <div class="dm-msg-time">${new Date(msg.timestamp).toLocaleTimeString()}</div>
+        </div>
+      `);
+      $messagesContainer.append($msgDiv);
+    });
+    
+    // Scroll to bottom
+    $messagesContainer.scrollTop($messagesContainer[0].scrollHeight);
+    
+    // Send message handlers
+    const sendHandler = () => {
+      const message = $('#dm-conversation-input').val().trim();
+      if (message) {
+        sendDirectMessage(username, walletAddress, message);
+        $('#dm-conversation-input').val('');
+        
+        // Add to UI immediately
+        const $msgDiv = $(`
+          <div class="dm-msg sent">
+            <div class="dm-msg-content">${message}</div>
+            <div class="dm-msg-time">${new Date().toLocaleTimeString()}</div>
+          </div>
+        `);
+        $messagesContainer.append($msgDiv);
+        $messagesContainer.scrollTop($messagesContainer[0].scrollHeight);
+        
+        // Update conversation list
+        setTimeout(() => populateConversationList(), 100);
+      }
+    };
+    
+    $('#dm-send-btn').on('click', sendHandler);
+    $('#dm-conversation-input').on('keypress', function(e) {
+      if (e.which === 13) sendHandler();
+    });
+    
+    // Focus input
+    $('#dm-conversation-input').focus();
+  };
+  
+  // Close DM interface
+  const closeDMInterface = () => {
+    $('#dm-interface').remove();
+    if (connected && $inputMessage.length) {
+      setTimeout(() => $inputMessage.focus(), 100);
+    }
+  };
+  
+  // Open new message modal (the old search functionality)
+  const openNewMessageModal = () => {
     const modalHtml = `
       <div class="dm-search-modal-overlay" id="dm-search-modal">
         <div class="dm-search-modal">
@@ -2466,25 +3336,23 @@ $(function() {
     `;
     $('body').append(modalHtml);
 
-    // IMPORTANT: Prevent all events from bubbling to main chat
+    // Prevent main chat from receiving events but allow modal functionality
     const $searchInput = $('#dm-search-input');
     const $searchModal = $('#dm-search-modal');
     
-    // Block ALL keyboard events from reaching main chat
-    $searchInput.on('keydown keyup keypress input', function(e) {
-      e.stopPropagation();
-      e.stopImmediatePropagation();
+    // Only block events from reaching main chat, not internal modal events
+    $searchInput.on('keydown keyup keypress', function(e) {
+      e.stopPropagation(); // Don't stop immediate propagation for modal functionality
     });
     
-    // Block click events on modal from bubbling
+    // Block click events on modal from bubbling to main chat
     $searchModal.on('click', function(e) {
       e.stopPropagation();
     });
 
-    // Handle search input specifically
+    // Handle search input - don't block internal events
     $searchInput.on('input', function(e) {
-      e.stopPropagation();
-      e.stopImmediatePropagation();
+      // Don't stop propagation for input events - we need them to work
       
       const query = $(this).val().toLowerCase().trim();
       const $results = $('#dm-search-results');
@@ -2494,9 +3362,20 @@ $(function() {
         $results.append('<div class="dm-search-hint">Type to search for users</div>');
         return;
       }
+      
+      if (query.length < 2) {
+        $results.append('<div class="dm-search-hint">Type at least 2 characters to search</div>');
+        return;
+      }
 
       let found = false;
       const usersToShow = new Map();
+      
+      console.log('[DM Search] Query:', query);
+      console.log('[DM Search] activeSockets:', window.activeSockets);
+      console.log('[DM Search] knownUsers:', knownUsers);
+      console.log('[DM Search] knownUsers size:', knownUsers.size);
+      console.log('[DM Search] knownUsers entries:', Array.from(knownUsers.entries()));
       
       // First, add all online users
       if (window.activeSockets) {
@@ -2504,7 +3383,9 @@ $(function() {
           // Skip current user
           if (userName === window.username) return;
           
+          console.log('[DM Search] Checking online user:', userName, 'against query:', query);
           if (userName.toLowerCase().includes(query)) {
+            console.log('[DM Search] Adding online user:', userName);
             usersToShow.set(userName, {
               ...userData,
               isOnline: true,
@@ -2512,19 +3393,29 @@ $(function() {
             });
           }
         });
+      } else {
+        console.log('[DM Search] No activeSockets available');
       }
       
       // Then, add offline users from known users
       knownUsers.forEach((userData, userName) => {
+        console.log('[DM Search] Checking known user:', userName, 'isOnline:', userData.isOnline);
         // Skip current user and users already added (online users)
-        if (userName === window.username || usersToShow.has(userName)) return;
+        if (userName === window.username || usersToShow.has(userName)) {
+          console.log('[DM Search] Skipping user:', userName, 'reason: current user or already added');
+          return;
+        }
         
+        console.log('[DM Search] Testing', userName.toLowerCase(), 'contains', query);
         if (userName.toLowerCase().includes(query)) {
+          console.log('[DM Search] Adding offline user:', userName);
           usersToShow.set(userName, {
             ...userData,
-            isOnline: false,
-            status: 'offline'
+            isOnline: userData.isOnline || false,
+            status: userData.isOnline ? 'online' : 'offline'
           });
+        } else {
+          console.log('[DM Search] User', userName, 'does not match query');
         }
       });
       
@@ -2572,7 +3463,17 @@ $(function() {
       
       // Show "no users found" if nothing matches
       if (!found) {
-        $results.append('<div class="dm-search-hint">No users found</div>');
+        console.log('[DM Search] No users found for query:', query);
+        $results.append(`
+          <div class="dm-search-hint">
+            <div style="color: #f87171;">No users found matching "${query}"</div>
+            <div style="font-size: 0.7rem; color: #9ca3af; margin-top: 4px;">
+              Users appear here after they've joined the chat at least once
+            </div>
+          </div>
+        `);
+      } else {
+        console.log('[DM Search] Found', usersToShow.size, 'matching users');
       }
     });
 
@@ -2580,9 +3481,9 @@ $(function() {
     const closeDMSearchModal = () => {
       $('#dm-search-modal').remove();
       // Return focus to main chat input if connected
-      if (connected && $messageInput.length) {
+      if (connected && $inputMessage.length) {
         setTimeout(() => {
-          $messageInput.focus();
+          $inputMessage.focus();
         }, 100);
       }
     };
@@ -2601,12 +3502,18 @@ $(function() {
       }
     });
     
-    // Handle Escape key to close modal
+    // Handle Escape key to close modal and Enter to select first result
     $searchModal.on('keydown', function(e) {
       if (e.which === 27) { // Escape key
         e.preventDefault();
         e.stopPropagation();
         closeDMSearchModal();
+      } else if (e.which === 13) { // Enter key
+        e.preventDefault();
+        const $firstResult = $('.dm-search-item').first();
+        if ($firstResult.length > 0) {
+          $firstResult.click();
+        }
       }
     });
 
@@ -2614,6 +3521,16 @@ $(function() {
     setTimeout(() => {
       $searchInput.focus();
       $searchInput[0].select();
+      
+      // Show current user count for debugging
+      const activeUserCount = window.activeSockets ? Object.keys(window.activeSockets).length : 0;
+      const knownUserCount = knownUsers ? knownUsers.size : 0;
+      console.log('[DM Modal] Opened with', activeUserCount, 'active users and', knownUserCount, 'known users');
+      
+      // If no users, show a hint
+      if (activeUserCount === 0 && knownUserCount === 0) {
+        $('#dm-search-results').html('<div class="dm-search-hint" style="color: #f87171;">No users available yet. Users will appear here after they join the chat.</div>');
+      }
     }, 100);
   };
 
@@ -2657,18 +3574,18 @@ $(function() {
     
     $('body').append(modalHtml);
     
-    // IMPORTANT: Block events from reaching main chat
+    // Prevent main chat from receiving events but allow DM functionality
     const $dmModal = $('#dm-modal');
     const $dmInput = $('#dm-input');
     
-    // Block ALL keyboard and click events from bubbling
-    $dmModal.on('click keydown keyup keypress input', function(e) {
+    // Block events from reaching main chat but not internal modal functionality
+    $dmModal.on('click keydown keyup keypress', function(e) {
       e.stopPropagation();
     });
     
-    $dmInput.on('keydown keyup keypress input', function(e) {
-      e.stopPropagation();
-      e.stopImmediatePropagation();
+    // Don't block input events - we need them for typing
+    $dmInput.on('keydown keyup keypress', function(e) {
+      e.stopPropagation(); // Only stop propagation to main chat
     });
     
     // Load existing messages
@@ -2707,7 +3624,6 @@ $(function() {
     
     $('#dm-input').on('keypress', function(e) {
       e.stopPropagation(); // Prevent main chat input from receiving this
-      e.stopImmediatePropagation();
       console.log('[DM] Keypress detected:', e.which);
       if (e.which === 13) { // Enter key
         e.preventDefault();
@@ -2716,10 +3632,9 @@ $(function() {
       }
     });
 
-    // Prevent any input events from bubbling to main chat
-    $('#dm-input').on('keydown keyup input', function(e) {
+    // Prevent input events from reaching main chat but allow modal functionality
+    $('#dm-input').on('keydown keyup', function(e) {
       e.stopPropagation();
-      e.stopImmediatePropagation();
     });
     
     // Close modal handlers with cleanup
@@ -2761,6 +3676,20 @@ $(function() {
       $dmInput.focus();
     }, 100);
   };
+
+  // Settings modal event handlers
+  $(document).on('click', '#close-settings', closeSettingsModal);
+  $(document).on('click', '#settings-modal .modal-overlay', function(e) {
+    if (e.target === this) {
+      closeSettingsModal();
+    }
+  });
+  $(document).on('click', '#update-username-btn', updateUsername);
+  $(document).on('keypress', '#new-username', function(e) {
+    if (e.which === 13) { // Enter key
+      updateUsername();
+    }
+  });
 
   // Send direct message
   const sendDirectMessage = (targetUsername, targetWallet, message) => {
@@ -2804,10 +3733,22 @@ $(function() {
       message: message,
       timestamp: Date.now()
     });
+    
+    // Refresh DM interface if it's open
+    if ($('#dm-interface').length > 0) {
+      setTimeout(() => populateConversationList(), 100);
+    }
   };
 
   // Initialize menu when page loads
   initializeMenu();
+
+  // Initialize character counter
+  setTimeout(() => {
+    if ($('.char-count').length > 0) {
+      updateCharacterCounter();
+    }
+  }, 100);
 
 });
 
@@ -2820,11 +3761,16 @@ $(document).ready(function() {
   console.log('[Init] Solana wallet API available:', !!window.solana);
   console.log('[Init] Socket.IO available:', !!window.io);
   
+  // Debug wallet buttons
+  $('.connectWallet').each(function(index) {
+    console.log(`[Init] Wallet button ${index}: id="${this.id}", text="${$(this).text()}"`);
+  });
+  
   // Fallback library loading if initial CDN failed
   if (!window.bs58) {
     console.log('[Init] Attempting to load bs58 from alternative CDN...');
     const script = document.createElement('script');
-    script.src = 'https://cdn.skypack.dev/bs58@5.0.0';
+    script.src = 'https://unpkg.com/bs58@5.0.0/index.js';
     script.onload = () => {
       console.log('[Init] bs58 loaded from alternative CDN');
       if (window.bs58) {
