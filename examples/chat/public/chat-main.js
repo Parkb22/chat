@@ -168,13 +168,15 @@ $(function() {
   });
 
   const addParticipantsMessage = (data) => {
-    let message = '';
-    if (data.numUsers === 1) {
-      message += `there's 1 participant`;
-    } else {
-      message += `there are ${data.numUsers} participants`;
-    }
-    log(message);
+    // Remove ugly participant text - show count in a cleaner way
+    updateUserCount(data.numUsers);
+  }
+
+  // Update user count display
+  const updateUserCount = (count) => {
+    // For the full chat page, we can add it to the user info or just skip for now
+    // since the full page layout is different from the widget
+    console.log(`Active users: ${count}`);
   }
 
   // Sets the client's username
@@ -705,7 +707,7 @@ $(function() {
       log('★ You have admin privileges');
     }
     
-    addParticipantsMessage(data);
+    updateUserCount(data.numUsers);
   });
 
   socket.on('new message', (data) => {
@@ -715,7 +717,7 @@ $(function() {
   socket.on('user joined', (data) => {
     const adminText = data.isAdmin ? ' ★' : '';
     log(`${data.username}${adminText} joined`);
-    addParticipantsMessage(data);
+    updateUserCount(data.numUsers);
     
     if (data.walletAddress) {
       activeUsers.set(data.username, data.walletAddress);
@@ -730,7 +732,7 @@ $(function() {
 
   socket.on('user left', (data) => {
     log(`${data.username} left`);
-    addParticipantsMessage(data);
+    updateUserCount(data.numUsers);
     removeChatTyping(data);
     
     activeUsers.delete(data.username);

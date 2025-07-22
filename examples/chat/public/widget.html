@@ -11,14 +11,52 @@
     <li class="chat page">
       <div class="chatArea">
         <div class="userInfo">
+          <div class="hamburger-menu">
+            <button class="hamburger-button" title="Menu">
+              ☰
+            </button>
+            <div class="menu-dropdown">
+              <div class="menu-section">
+                <div class="menu-item sound-toggle">
+                  <span class="menu-item-icon">🔊</span>
+                  <span class="menu-item-text">Sounds</span>
+                  <span class="sound-indicator">
+                    <span class="sound-status">On</span>
+                  </span>
+                </div>
+                <div class="menu-item" id="settings-item">
+                  <span class="menu-item-icon">⚙️</span>
+                  <span class="menu-item-text">Settings</span>
+                </div>
+              </div>
+              
+              <div class="menu-section">
+                <div class="menu-item" id="direct-messages-header">
+                  <span class="menu-item-icon">💬</span>
+                  <span class="menu-item-text">Direct Messages</span>
+                  <span class="menu-item-badge dm-count hidden">0</span>
+                </div>
+                <div class="menu-user-list" id="user-list">
+                  <!-- Users will be populated here -->
+                </div>
+              </div>
+              
+              <div class="menu-section">
+                <div class="menu-item danger disconnect-menu-btn">
+                  <span class="menu-item-icon">🚪</span>
+                  <span class="menu-item-text">Disconnect</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          
           <div class="userDetails">
             <span class="walletAddress"></span>
             <span class="username"></span>
           </div>
+          
           <div class="userControls">
-            <button class="disconnectBtn" title="Disconnect and leave chat">
-              🚪 Disconnect
-            </button>
+            <!-- User count will be added here dynamically -->
           </div>
         </div>
         <ul class="messages"></ul>

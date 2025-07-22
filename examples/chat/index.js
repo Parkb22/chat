@@ -40,6 +40,67 @@ const ADMIN_WALLET = 'DhNPBXAgDtPwSTeEMcHxGtFLCdx1F8NU9hBdYxzu7W8U';
 const mutedUsers = new Set();
 const deletedMessages = new Set();
 
+// Direct message system
+const directMessages = new Map(); // walletAddress -> Array of DMs
+const offlineMessages = new Map(); // walletAddress -> Array of undelivered DMs
+
+// Helper function to store direct message
+const storeDirectMessage = (senderWallet, senderUsername, targetWallet, targetUsername, message, timestamp) => {
+  const dmData = {
+    id: Date.now() + Math.random(), // Simple unique ID
+    senderWallet: senderWallet,
+    senderUsername: senderUsername,
+    targetWallet: targetWallet,
+    targetUsername: targetUsername,
+    message: message,
+    timestamp: timestamp,
+    delivered: false
+  };
+
+  // Store in sender's outbox
+  if (!directMessages.has(senderWallet)) {
+    directMessages.set(senderWallet, []);
+  }
+  directMessages.get(senderWallet).push({...dmData, type: 'sent'});
+
+  // Store in target's inbox
+  if (!directMessages.has(targetWallet)) {
+    directMessages.set(targetWallet, []);
+  }
+  directMessages.get(targetWallet).push({...dmData, type: 'received'});
+
+  return dmData;
+};
+
+// Helper function to get direct messages for a user
+const getDirectMessagesForUser = (walletAddress) => {
+  return directMessages.get(walletAddress) || [];
+};
+
+// Helper function to mark messages as delivered
+const markMessagesAsDelivered = (targetWallet, senderWallet) => {
+  const userMessages = directMessages.get(targetWallet) || [];
+  userMessages
+    .filter(msg => msg.senderWallet === senderWallet && !msg.delivered)
+    .forEach(msg => msg.delivered = true);
+};
+
+// Helper function to get undelivered messages for a user
+const getUndeliveredMessages = (targetWallet) => {
+  const userMessages = directMessages.get(targetWallet) || [];
+  return userMessages.filter(msg => msg.type === 'received' && !msg.delivered);
+};
+
+// Helper function to check if user is online
+const isUserOnline = (walletAddress) => {
+  for (let [socketId, userInfo] of activeSockets) {
+    if (userInfo.walletAddress === walletAddress) {
+      return socketId;
+    }
+  }
+  return null;
+};
+
 // Helper function to check if user is admin
 const isAdmin = (walletAddress) => {
   return walletAddress === ADMIN_WALLET;
@@ -169,6 +230,23 @@ io.on('connection', (socket) => {
       numUsers: numUsers,
       isAdmin: isAdmin(socket.walletAddress)
     });
+
+    // Send undelivered direct messages
+    const undeliveredMessages = getUndeliveredMessages(socket.walletAddress);
+    if (undeliveredMessages.length > 0) {
+      console.log(`Sending ${undeliveredMessages.length} undelivered DMs to ${socket.username}`);
+      socket.emit('dm notification', {
+        messages: undeliveredMessages.map(dm => ({
+          senderUsername: dm.senderUsername,
+          senderWallet: dm.senderWallet,
+          message: dm.message,
+          timestamp: dm.timestamp
+        }))
+      });
+      
+      // Mark messages as delivered
+      undeliveredMessages.forEach(msg => msg.delivered = true);
+    }
 
     // Echo globally (all clients) that a person has connected
     socket.broadcast.emit('user joined', {
@@ -304,6 +382,55 @@ io.on('connection', (socket) => {
     
     // Broadcast unmute to all clients
     io.emit('user unmuted', { walletAddress: targetWalletAddress });
+  });
+
+  // Handle direct messages
+  socket.on('direct message', (data) => {
+    console.log('Direct message from', socket.username, 'to', data.targetUsername);
+    
+    if (!socket.username || !socket.walletAddress) {
+      socket.emit('error', 'Not authenticated');
+      return;
+    }
+
+    if (!data.targetUsername || !data.targetWallet || !data.message) {
+      socket.emit('error', 'Invalid direct message data');
+      return;
+    }
+
+    // Verify the target wallet matches the username (basic security)
+    const targetSocketId = isUserOnline(data.targetWallet);
+    
+    // Store the message
+    const dmData = storeDirectMessage(
+      socket.walletAddress,
+      socket.username,
+      data.targetWallet,
+      data.targetUsername,
+      data.message,
+      data.timestamp || Date.now()
+    );
+
+    console.log(`DM stored: ${socket.username} -> ${data.targetUsername}: ${data.message}`);
+
+    // If target user is online, deliver immediately
+    if (targetSocketId) {
+      const targetSocket = io.sockets.sockets.get(targetSocketId);
+      if (targetSocket) {
+        targetSocket.emit('direct message', {
+          senderUsername: socket.username,
+          senderWallet: socket.walletAddress,
+          message: data.message,
+          timestamp: dmData.timestamp
+        });
+        
+        // Mark as delivered
+        dmData.delivered = true;
+        console.log(`DM delivered immediately to online user ${data.targetUsername}`);
+      }
+    } else {
+      console.log(`User ${data.targetUsername} is offline, message stored for later delivery`);
+    }
   });
 
   // When the client emits 'typing', we broadcast it to others

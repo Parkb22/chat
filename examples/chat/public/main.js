@@ -55,6 +55,9 @@ $(function() {
   let activeUsers = new Map(); // Store active users for tagging
   window.isCurrentUserAdmin = false;
   
+  // Make username globally accessible for hamburger menu
+  window.username = null;
+
   // Mention autocomplete state
   let mentionAutocomplete = {
     visible: false,
@@ -140,6 +143,7 @@ $(function() {
       wallet = null;
       walletAddress = null;
       username = null;
+      window.username = null;
       connected = false;
       
       // Reset UI
@@ -179,13 +183,8 @@ $(function() {
   });
 
   const addParticipantsMessage = (data) => {
-    let message = '';
-    if (data.numUsers === 1) {
-      message += `there's 1 participant`;
-    } else {
-      message += `there are ${data.numUsers} participants`;
-    }
-    log(message);
+    // Remove ugly participant text - we'll show count in status bar instead
+    updateUserCount(data.numUsers);
   }
 
   // Username validation
@@ -209,6 +208,7 @@ $(function() {
 
     if (inputUsername && walletAddress) {
       username = inputUsername;
+      window.username = username;
       $usernamePage.removeClass('active');
       $chatPage.addClass('active');
       $usernamePage.off('click');
@@ -1030,7 +1030,6 @@ $(function() {
   const playNotificationSound = (type = 'message') => {
     if (!soundEnabled) return;
     
-    // Create audio context for notification sounds
     try {
       const audioContext = new (window.AudioContext || window.webkitAudioContext)();
       const oscillator = audioContext.createOscillator();
@@ -1039,23 +1038,47 @@ $(function() {
       oscillator.connect(gainNode);
       gainNode.connect(audioContext.destination);
       
-      if (type === 'mention') {
-        oscillator.frequency.setValueAtTime(800, audioContext.currentTime);
-        oscillator.frequency.exponentialRampToValueAtTime(1200, audioContext.currentTime + 0.1);
-      } else {
-        oscillator.frequency.setValueAtTime(600, audioContext.currentTime);
+      // Different sounds for different notification types
+      switch(type) {
+        case 'mention':
+          // Higher pitch for mentions
+          oscillator.frequency.setValueAtTime(800, audioContext.currentTime);
+          oscillator.frequency.setValueAtTime(600, audioContext.currentTime + 0.1);
+          gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+          gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
+          oscillator.start(audioContext.currentTime);
+          oscillator.stop(audioContext.currentTime + 0.3);
+          break;
+        case 'dm':
+          // Special sound for direct messages
+          oscillator.frequency.setValueAtTime(700, audioContext.currentTime);
+          oscillator.frequency.setValueAtTime(500, audioContext.currentTime + 0.08);
+          oscillator.frequency.setValueAtTime(650, audioContext.currentTime + 0.16);
+          gainNode.gain.setValueAtTime(0.25, audioContext.currentTime);
+          gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.4);
+          oscillator.start(audioContext.currentTime);
+          oscillator.stop(audioContext.currentTime + 0.4);
+          break;
+        case 'click':
+          // Soft click sound
+          oscillator.frequency.setValueAtTime(300, audioContext.currentTime);
+          gainNode.gain.setValueAtTime(0.1, audioContext.currentTime);
+          gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.1);
+          oscillator.start(audioContext.currentTime);
+          oscillator.stop(audioContext.currentTime + 0.1);
+          break;
+        default:
+          // Default message sound
+          oscillator.frequency.setValueAtTime(520, audioContext.currentTime);
+          gainNode.gain.setValueAtTime(0.2, audioContext.currentTime);
+          gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.2);
+          oscillator.start(audioContext.currentTime);
+          oscillator.stop(audioContext.currentTime + 0.2);
       }
-      
-      gainNode.gain.setValueAtTime(0.1, audioContext.currentTime);
-      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
-      
-      oscillator.start(audioContext.currentTime);
-      oscillator.stop(audioContext.currentTime + 0.3);
-    } catch (e) {
-      // Fallback for browsers that don't support AudioContext
-      console.log('🔊 Notification sound');
+    } catch (error) {
+      console.log('Sound notification failed:', error);
     }
-  }
+  };
 
   // Check if user is scrolled to bottom of messages
   const checkScrollPosition = () => {
@@ -1164,6 +1187,25 @@ $(function() {
     }
   }
 
+  // Update user count display in status bar
+  const updateUserCount = (count) => {
+    let $userCount = $('.user-count');
+    
+    if ($userCount.length === 0) {
+      $userCount = $(`
+        <div class="user-count" title="Active users">
+          <span class="user-count-icon">👥</span>
+          <span class="user-count-number">0</span>
+        </div>
+      `);
+      // Add to userControls before disconnect button
+      $('.userControls .disconnectBtn').before($userCount);
+    }
+    
+    const $number = $userCount.find('.user-count-number');
+    $number.text(count);
+  }
+
   // Update connection status
   const updateConnectionStatus = (status) => {
     connectionState = status;
@@ -1270,6 +1312,7 @@ $(function() {
   socket.on('user exists', (data) => {
     // User already exists for this wallet, use existing username
     username = data.username;
+    window.username = username;
     console.log('Existing user found:', username);
     
     // Hide all other pages and show chat
@@ -1324,7 +1367,8 @@ $(function() {
       }, '*');
     }
     
-    addParticipantsMessage(data);
+    // Initialize user count display
+    updateUserCount(data.numUsers);
     hideWelcomeMessage();
   });
 
@@ -1342,7 +1386,7 @@ $(function() {
   socket.on('user joined', (data) => {
     const adminText = data.isAdmin ? ' ★' : '';
     log(`${data.username}${adminText} joined`);
-    addParticipantsMessage(data);
+    updateUserCount(data.numUsers);
     
     // Add to active users for tagging
     if (data.walletAddress) {
@@ -1370,7 +1414,7 @@ $(function() {
 
   socket.on('user left', (data) => {
     log(`${data.username} left`);
-    addParticipantsMessage(data);
+    updateUserCount(data.numUsers);
     removeChatTyping(data);
     
     // Remove from active users
@@ -1395,6 +1439,117 @@ $(function() {
   socket.on('stop typing', (data) => {
     removeChatTyping(data);
   });
+
+  // Direct message events
+  socket.on('direct message', (data) => {
+    console.log('Received DM:', data);
+    
+    const senderUsername = data.senderUsername;
+    const message = data.message;
+    const timestamp = data.timestamp;
+    
+    // Add to local conversation
+    if (!directMessages.has(senderUsername)) {
+      directMessages.set(senderUsername, []);
+    }
+    
+    const dmData = {
+      message: message,
+      fromSelf: false,
+      timestamp: timestamp,
+      senderUsername: senderUsername,
+      senderWallet: data.senderWallet
+    };
+    
+    directMessages.get(senderUsername).push(dmData);
+    
+    // Update unread count if not currently viewing this conversation
+    const currentDmModal = document.getElementById('dm-modal');
+    const isViewingThisConversation = currentDmModal && 
+      currentDmModal.querySelector('.dm-modal-header h3').textContent.includes(senderUsername);
+    
+    if (!isViewingThisConversation) {
+      const currentUnread = unreadDMs.get(senderUsername) || 0;
+      unreadDMs.set(senderUsername, currentUnread + 1);
+      
+      // Update user list if menu is open
+      if (menuOpen) {
+        updateUserList();
+      }
+      
+      // Show notification
+      showDMNotification(senderUsername, message);
+    } else {
+      // If viewing conversation, add message to UI
+      const $dmMessages = $('#dm-messages');
+      if ($dmMessages.length > 0) {
+        const $msgDiv = $(`
+          <div class="dm-message other">
+            <span class="dm-timestamp">${new Date(timestamp).toLocaleTimeString()}</span>
+            <span class="dm-content">${message}</span>
+          </div>
+        `);
+        $dmMessages.append($msgDiv);
+        $dmMessages.scrollTop($dmMessages[0].scrollHeight);
+      }
+    }
+  });
+
+  socket.on('dm notification', (data) => {
+    console.log('DM notification for offline messages:', data);
+    
+    // Handle offline messages notification
+    data.messages.forEach(msg => {
+      const senderUsername = msg.senderUsername;
+      
+      if (!directMessages.has(senderUsername)) {
+        directMessages.set(senderUsername, []);
+      }
+      
+      directMessages.get(senderUsername).push({
+        message: msg.message,
+        fromSelf: false,
+        timestamp: msg.timestamp,
+        senderUsername: senderUsername,
+        senderWallet: msg.senderWallet
+      });
+      
+      // Update unread count
+      const currentUnread = unreadDMs.get(senderUsername) || 0;
+      unreadDMs.set(senderUsername, currentUnread + 1);
+    });
+    
+    // Show notification for offline messages
+    if (data.messages.length > 0) {
+      showDMNotification('System', `You have ${data.messages.length} new direct message(s)`);
+    }
+  });
+
+  // Show DM notification
+  const showDMNotification = (sender, message) => {
+    // Visual notification in chat
+    if (sender !== 'System') {
+      log(`💬 DM from ${sender}: ${message.substring(0, 50)}${message.length > 50 ? '...' : ''}`);
+    } else {
+      log(message);
+    }
+    
+    // Play notification sound
+    playNotificationSound('dm');
+    
+    // Browser notification if supported and permitted
+    if ('Notification' in window && Notification.permission === 'granted') {
+      new Notification(`Direct Message from ${sender}`, {
+        body: message.substring(0, 100),
+        icon: '/favicon.ico'
+      });
+    }
+  };
+
+  // Request notification permission on load
+  if ('Notification' in window && Notification.permission === 'default') {
+    Notification.requestPermission();
+  }
 
   socket.on('disconnect', () => {
     log('you have been disconnected');
@@ -1436,11 +1591,6 @@ $(function() {
   socket.io.on('reconnect_error', () => {
     log('attempt to reconnect has failed');
     updateConnectionStatus('disconnected');
-  });
-
-  socket.io.on('disconnect', () => {
-    updateConnectionStatus('disconnected');
-    showWelcomeMessage();
   });
 
   // Admin event handlers
@@ -1551,20 +1701,250 @@ $(function() {
     toggleWidget(!isExpanded);
   });
   
-  // Add sound toggle
-  const $soundToggle = $(`
-    <div class="sound-toggle" title="Toggle notification sounds">
-      🔊
-    </div>
-  `);
-  $soundToggle.on('click', () => {
-    soundEnabled = !soundEnabled;
-    $soundToggle.text(soundEnabled ? '🔊' : '🔇');
-    $soundToggle.toggleClass('muted', !soundEnabled);
-  });
+  // Sound toggle moved to hamburger menu
   
-  // Add to userControls in proper order: expand, sound, connection status will be added by updateConnectionStatus, then disconnect is already in HTML
+  // Add to userControls in proper order: expand button, then user count and connection status
   $('.userControls').prepend($expandButton);
-  $('.userControls').append($soundToggle);
+
+  // Hamburger menu elements
+  const $hamburgerButton = $('.hamburger-button');
+  const $menuDropdown = $('.menu-dropdown');
+  const $menuSoundToggle = $('.menu-item.sound-toggle');
+  const $disconnectMenuBtn = $('.disconnect-menu-btn');
+  const $userList = $('#user-list');
+  const $dmCount = $('.dm-count');
+
+  // Menu state
+  let menuOpen = false;
+  let directMessages = new Map(); // Store DM conversations
+  let unreadDMs = new Map(); // Track unread DM counts per user
+
+  // Initialize hamburger menu functionality
+  const initializeMenu = () => {
+    // Toggle menu on hamburger click
+    $hamburgerButton.on('click', (e) => {
+      e.stopPropagation();
+      toggleMenu();
+    });
+
+    // Close menu when clicking outside
+    $(document).on('click', (e) => {
+      if (menuOpen && !$(e.target).closest('.hamburger-menu').length) {
+        closeMenu();
+      }
+    });
+
+    // Sound toggle functionality in menu
+    $menuSoundToggle.on('click', () => {
+      soundEnabled = !soundEnabled;
+      updateSoundIndicator();
+      playNotificationSound('click'); // Test sound
+    });
+
+    // Disconnect from menu
+    $disconnectMenuBtn.on('click', () => {
+      closeMenu();
+      disconnectWallet();
+    });
+
+    // Prevent menu from closing when clicking inside dropdown
+    $menuDropdown.on('click', (e) => {
+      e.stopPropagation();
+    });
+  };
+
+  const toggleMenu = () => {
+    if (menuOpen) {
+      closeMenu();
+    } else {
+      openMenu();
+    }
+  };
+
+  const openMenu = () => {
+    menuOpen = true;
+    $hamburgerButton.addClass('active');
+    $menuDropdown.addClass('visible');
+    updateUserList();
+  };
+
+  const closeMenu = () => {
+    menuOpen = false;
+    $hamburgerButton.removeClass('active');
+    $menuDropdown.removeClass('visible');
+  };
+
+  const updateSoundIndicator = () => {
+    const $soundIcon = $('.sound-toggle .menu-item-icon');
+    const $soundStatus = $('.sound-status');
+    const $soundIndicator = $('.sound-indicator');
+    
+    if (soundEnabled) {
+      $soundIcon.text('🔊');
+      $soundStatus.text('On');
+      $soundIndicator.removeClass('muted');
+    } else {
+      $soundIcon.text('🔇');
+      $soundStatus.text('Off');
+      $soundIndicator.addClass('muted');
+    }
+  };
+
+  // Update user list in menu
+  const updateUserList = () => {
+    if (!window.activeSockets) return;
+    
+    $userList.empty();
+    
+    Object.entries(window.activeSockets).forEach(([username, userData]) => {
+      // Skip current user
+      if (username === window.username) return;
+      
+      const unreadCount = unreadDMs.get(username) || 0;
+      const isOnline = true; // For now, assume online users are in activeSockets
+      
+      const $userItem = $(`
+        <div class="menu-user-item" data-username="${username}" data-wallet="${userData.walletAddress}">
+          <div class="menu-user-avatar">${username.charAt(0).toUpperCase()}</div>
+          <div class="menu-user-name">${username}${userData.isAdmin ? ' ★' : ''}</div>
+          ${unreadCount > 0 ? `<div class="menu-item-badge">${unreadCount}</div>` : ''}
+          <div class="menu-user-status ${isOnline ? 'online' : 'offline'}"></div>
+        </div>
+      `);
+      
+      $userItem.on('click', () => {
+        openDirectMessage(username, userData.walletAddress);
+        closeMenu();
+      });
+      
+      $userList.append($userItem);
+    });
+    
+    // Update total DM count
+    const totalUnread = Array.from(unreadDMs.values()).reduce((sum, count) => sum + count, 0);
+    if (totalUnread > 0) {
+      $dmCount.text(totalUnread).removeClass('hidden');
+    } else {
+      $dmCount.addClass('hidden');
+    }
+  };
+
+  // Direct Message functionality
+  const openDirectMessage = (targetUsername, targetWallet) => {
+    console.log(`Opening DM with ${targetUsername} (${targetWallet})`);
+    
+    // Mark messages as read
+    unreadDMs.delete(targetUsername);
+    updateUserList();
+    
+    // TODO: Implement DM interface - for now just show in console
+    const conversation = directMessages.get(targetUsername) || [];
+    console.log('DM Conversation:', conversation);
+    
+    // You could open a modal or sidebar here for the DM interface
+    showDirectMessageModal(targetUsername, targetWallet);
+  };
+
+  const showDirectMessageModal = (targetUsername, targetWallet) => {
+    // Create a simple DM modal for now
+    const modalHtml = `
+      <div class="dm-modal-overlay" id="dm-modal">
+        <div class="dm-modal">
+          <div class="dm-modal-header">
+            <h3>Direct Message - ${targetUsername}</h3>
+            <button class="dm-modal-close">×</button>
+          </div>
+          <div class="dm-modal-messages" id="dm-messages">
+            <!-- Messages will go here -->
+          </div>
+          <div class="dm-modal-input">
+            <input type="text" placeholder="Type a direct message..." id="dm-input" />
+            <button id="dm-send">Send</button>
+          </div>
+        </div>
+      </div>
+    `;
+    
+    $('body').append(modalHtml);
+    
+    // Load existing messages
+    const conversation = directMessages.get(targetUsername) || [];
+    const $dmMessages = $('#dm-messages');
+    
+    conversation.forEach(msg => {
+      const $msgDiv = $(`
+        <div class="dm-message ${msg.fromSelf ? 'self' : 'other'}">
+          <span class="dm-timestamp">${new Date(msg.timestamp).toLocaleTimeString()}</span>
+          <span class="dm-content">${msg.message}</span>
+        </div>
+      `);
+      $dmMessages.append($msgDiv);
+    });
+    
+    // Scroll to bottom
+    $dmMessages.scrollTop($dmMessages[0].scrollHeight);
+    
+    // Handle sending messages
+    $('#dm-send, #dm-input').on('keypress click', function(e) {
+      if (e.type === 'click' || e.which === 13) {
+        const message = $('#dm-input').val().trim();
+        if (message) {
+          sendDirectMessage(targetUsername, targetWallet, message);
+          $('#dm-input').val('');
+        }
+      }
+    });
+    
+    // Close modal
+    $('.dm-modal-close, .dm-modal-overlay').on('click', function(e) {
+      if (e.target === this) {
+        $('#dm-modal').remove();
+      }
+    });
+    
+    // Focus input
+    $('#dm-input').focus();
+  };
+
+  const sendDirectMessage = (targetUsername, targetWallet, message) => {
+    console.log(`Sending DM to ${targetUsername}: ${message}`);
+    
+    // Add to local conversation
+    if (!directMessages.has(targetUsername)) {
+      directMessages.set(targetUsername, []);
+    }
+    
+    const dmData = {
+      message: message,
+      fromSelf: true,
+      timestamp: Date.now(),
+      targetUsername: targetUsername,
+      targetWallet: targetWallet
+    };
+    
+    directMessages.get(targetUsername).push(dmData);
+    
+    // Add to UI
+    const $dmMessages = $('#dm-messages');
+    const $msgDiv = $(`
+      <div class="dm-message self">
+        <span class="dm-timestamp">${new Date().toLocaleTimeString()}</span>
+        <span class="dm-content">${message}</span>
+      </div>
+    `);
+    $dmMessages.append($msgDiv);
+    $dmMessages.scrollTop($dmMessages[0].scrollHeight);
+    
+    // Emit to server
+    socket.emit('direct message', {
+      targetUsername: targetUsername,
+      targetWallet: targetWallet,
+      message: message,
+      timestamp: Date.now()
+    });
+  };
+
+  // Initialize menu when page loads
+  initializeMenu();
 
 });
