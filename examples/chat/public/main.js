@@ -98,12 +98,17 @@ $(function() {
         // Get signature function from wallet
         const signMessage = async (message) => {
           console.log('[DegenPark Auth] Signing message:', message);
+          console.log('[DegenPark Auth] Message length:', message.length);
+          console.log('[DegenPark Auth] Message as bytes:', Array.from(new TextEncoder().encode(message)));
+          
           const encodedMessage = new TextEncoder().encode(message);
           const signedMessage = await window.solana.signMessage(encodedMessage);
           
-          console.log('[DegenPark Auth] Signature received:', signedMessage);
+          console.log('[DegenPark Auth] Wallet signature response:', signedMessage);
           console.log('[DegenPark Auth] Signature type:', typeof signedMessage.signature);
           console.log('[DegenPark Auth] Signature length:', signedMessage.signature.length);
+          console.log('[DegenPark Auth] Expected Ed25519 length: 64');
+          console.log('[DegenPark Auth] Length matches standard:', signedMessage.signature.length === 64);
           console.log('[DegenPark Auth] bs58 available:', !!window.bs58);
           
           // Convert signature to base58 format (Solana standard)
@@ -247,13 +252,25 @@ $(function() {
         publicKey: publicKey
       };
       
-      console.log('[DegenPark Auth] Sending auth request');
+      console.log('[DegenPark Auth] === REQUEST COMPARISON WITH OLD SCRIPT ===');
+      console.log('[DegenPark Auth] Message signed: "Hello, world!"');
+      console.log('[DegenPark Auth] Public key:', publicKey);
+      console.log('[DegenPark Auth] Public key length:', publicKey.length);
+      console.log('[DegenPark Auth] Signature (base58):', signature);
+      console.log('[DegenPark Auth] Signature length:', signature.length);
+      console.log('[DegenPark Auth] Request body:', JSON.stringify(requestBody, null, 2));
+      console.log('[DegenPark Auth] API endpoint:', `${DEGENPARK_API_BASE}/api/v1/auth/login/web3`);
+      console.log('[DegenPark Auth] Headers: Content-Type: application/json, Accept: application/json (removed x-network header to match old script)');
+      console.log('[DegenPark Auth] ===============================================');
+      
+      console.log('[DegenPark Auth] Sending auth request...');
+      
       const response = await fetch(`${DEGENPARK_API_BASE}/api/v1/auth/login/web3`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Accept': 'application/json',
-          'x-network': 'solana'
+          'Accept': 'application/json'
+          // Removed 'x-network': 'solana' to match old script format
         },
         body: JSON.stringify(requestBody)
       });
@@ -289,8 +306,8 @@ $(function() {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${degenParkTokens.accessToken}`,
-          'Accept': 'application/json',
-          'x-network': 'solana'
+          'Accept': 'application/json'
+          // Removed 'x-network': 'solana' to match old script format
         }
       });
 
