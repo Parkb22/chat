@@ -403,240 +403,216 @@ $(function() {
   const DEGENPARK_API_BASE = 'https://api.degenpark.io';
   let degenParkTokens = null; // Store access and refresh tokens
 
-  // Function to get auth tokens using wallet signature
+  // Function to get auth tokens - REWRITTEN based on working sample.js
   const getDegenParkAuthTokens = async (publicKey, signMessage) => {
+    console.log('[DegenPark Auth] === STARTING AUTHENTICATION (SAMPLE.JS APPROACH) ===');
+    console.log('[DegenPark Auth] Target API:', DEGENPARK_API_BASE);
+    console.log('[DegenPark Auth] Public key:', publicKey);
+    
     try {
-      console.log('[DegenPark Auth] Starting authentication for:', publicKey);
+      // Step 1: Test multiple message variants that might work
+      const messageVariants = [
+        "Hello, world!",                               // Standard from sample.js 
+        "Connect to join the game!",                   // User mentioned seeing this on website
+        "Solana Signed Message:\nHello, world!",      // Phantom wallet prefix format
+        "Solana Signed Message:\nConnect to join the game!"
+      ];
       
-      // Step 1: Sign the standard authentication message
-      const message = "Hello, world!"; // Standard message for authentication
-      console.log('[DegenPark Auth] Signing message:', message);
+      console.log('[DegenPark Auth] Will systematically test', messageVariants.length, 'message variants');
       
-      // Request signature from wallet
-      const signatureResult = await signMessage(message);
-      console.log('[DegenPark Auth] Signature obtained');
-      
-      // IMPORTANT: Extract actual signing key from wallet response
-      let actualSigningKey = publicKey; // Default to provided key
-      
-      // Check if wallet response includes the signing public key
-      if (signatureResult && signatureResult.publicKey) {
-        actualSigningKey = signatureResult.publicKey;
-        console.log('[DegenPark Auth] Using wallet\'s actual signing key:', actualSigningKey);
-        console.log('[DegenPark Auth] Original connection key:', publicKey);
-        console.log('[DegenPark Auth] Keys match:', actualSigningKey === publicKey);
-      }
-      
-      // Step 2: Send auth request to DegenPark API (now returns both signature and potentially updated key)
-      const requestBody = {
-        signature: signatureResult.signature || signatureResult, // Handle both object and string returns
-        publicKey: actualSigningKey
-      };
-      
-      console.log('[DegenPark Auth] === REQUEST COMPARISON WITH WORKING DEGENPARK EXAMPLES ===');
-      console.log('[DegenPark Auth] ✅ Message: "Hello, world!" (standard)');
-      console.log('[DegenPark Auth] ✅ API endpoint: /api/v1/auth/login/web3 (matches)');
-      console.log('[DegenPark Auth] ✅ Headers: x-network: solana (RESTORED - was missing!)');
-      console.log('[DegenPark Auth] ✅ Request body format: {signature, publicKey} (matches)');
-      
-      console.log('[DegenPark Auth] === FINAL COMPARISON ===');
-      console.log('[DegenPark Auth] Working example 1: {"signature":"Fo5Prm7PEx8mpQfPoxfRhXULqziZ675VZjPtEZahi7RYpSHGwxvJfnwk4MjyDDdcSNPWsCtSLZQJ3AWTzR26qAj","publicKey":"3CnbCgThb6faA7CGWCPQyRd7S1wfnYnrNUWzBZBkobvC"}');
-      console.log('[DegenPark Auth] Working example 2: {"signature":"3YoheiG3ViaUtroRbFyA5t96xbprbXUPvGvFXbrZbcyGzKxeeHv2HRktehhtD3RYKKvdvCmbZoKwrpPPEw9Vs6DH","publicKey":"EssGUXS3SdjYq2wmAUcCo5AJVd2ZmGcCJG3QUWzBZBkobvC"}');
-      console.log('[DegenPark Auth] Our request body:', JSON.stringify(requestBody));
-      
-      // CRITICAL DEBUG: Try to understand the exact difference
-      console.log('[DegenPark Auth] === CRITICAL SIGNATURE ANALYSIS ===');
-      
-      // Test: Try to decode working signature and compare
-      if (window.bs58 && window.bs58.decode) {
-        try {
-          const workingSignature1 = 'Fo5Prm7PEx8mpQfPoxfRhXULqziZ675VZjPtEZahi7RYpSHGwxvJfnwk4MjyDDdcSNPWsCtSLZQJ3AWTzR26qAj';
-          const workingBytes1 = window.bs58.decode(workingSignature1);
-          console.log('[DegenPark Auth] Working signature 1 decoded length:', workingBytes1.length);
-          console.log('[DegenPark Auth] Working signature 1 first 8 bytes:', Array.from(workingBytes1.slice(0, 8)));
-          
-          console.log('[DegenPark Auth] Our signature decoded length:', signature.length);
-          console.log('[DegenPark Auth] Our signature first 8 bytes:', Array.from(signature.slice(0, 8)));
-          
-          console.log('[DegenPark Auth] Signature lengths match:', workingBytes1.length === signature.length);
-        } catch (decodeError) {
-          console.warn('[DegenPark Auth] Failed to decode working signature for comparison:', decodeError);
-        }
-      }
-      
-      // Test: Try different signature formats
-      console.log('[DegenPark Auth] === TESTING ALTERNATIVE SIGNATURE FORMATS ===');
-      
-      // Maybe the wallet returns signature + recovery info?
-      if (signedMessage.signature.length === 65) {
-        console.log('[DegenPark Auth] Signature is 65 bytes - might include recovery byte');
-        const altSignature = signedMessage.signature.slice(0, 64); // Remove recovery byte
-        const altBase58 = window.bs58 ? window.bs58.encode(altSignature) : base58Encode(altSignature);
-        console.log('[DegenPark Auth] Alternative signature (64 bytes):', altBase58);
-        console.log('[DegenPark Auth] Alternative signature length:', altBase58.length);
-        
-        // Try using the 64-byte version
-        if (altBase58.length >= 87 && altBase58.length <= 88) {
-          console.log('[DegenPark Auth] Using 64-byte signature variant');
-          base58Signature = altBase58;
-        }
-      }
-      
-      console.log('[DegenPark Auth] === KEY DIFFERENCES ANALYSIS ===');
-      console.log('[DegenPark Auth] Our public key length:', actualSigningKey.length);
-      console.log('[DegenPark Auth] Working example lengths: 44 chars (base58 pubkey)');
-      console.log('[DegenPark Auth] Public key format matches:', actualSigningKey.length === 44);
-      console.log('[DegenPark Auth] Our signature length:', requestBody.signature.length);
-      console.log('[DegenPark Auth] Working signature lengths: 87-88 chars');
-      console.log('[DegenPark Auth] Signature length matches:', requestBody.signature.length >= 87 && requestBody.signature.length <= 88);
-      
-      console.log('[DegenPark Auth] Message signed: "Hello, world!"');
-      
-      // Step 3: Send auth request to DegenPark API
-      console.log('[DegenPark Auth] === SENDING REQUEST ===');
-      console.log('[DegenPark Auth] URL:', `${DEGENPARK_API_BASE}/api/v1/auth/login/web3`);
-      console.log('[DegenPark Auth] Method: POST');
-      console.log('[DegenPark Auth] Headers:', {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-        'x-network': 'solana'
-      });
-      console.log('[DegenPark Auth] Body (string):', JSON.stringify(requestBody));
-      console.log('[DegenPark Auth] Body (pretty):', JSON.stringify(requestBody, null, 2));
-      console.log('[DegenPark Auth] Body length:', JSON.stringify(requestBody).length);
-      console.log('[DegenPark Auth] ============================');
-      
-      const response = await fetch(`${DEGENPARK_API_BASE}/api/v1/auth/login/web3`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-          'x-network': 'solana'  // REQUIRED: Working DegenPark website includes this header
-        },
-        body: JSON.stringify(requestBody)
-      });
-      
-      const data = await response.json();
-      console.log('[DegenPark Auth] Response status:', response.status);
-      
-      if (response.ok && data.data && data.data.accessToken) {
-        console.log('[DegenPark Auth] Successfully authenticated');
-        degenParkTokens = {
-          accessToken: data.data.accessToken,
-          refreshToken: data.data.refreshToken
-        };
-        return degenParkTokens;
-      } else {
-        throw new Error('Authentication failed: ' + (data.message || 'Unknown error'));
-      }
-    } catch (error) {
-      console.error('[DegenPark Auth Error]', error.message);
-      
-      // If we get "Invalid signature" error, try alternative approaches
-      if (error.message.includes('Invalid signature') && !error.retried) {
-        console.log('[DegenPark Auth] === TESTING ALTERNATIVE SIGNATURE APPROACHES ===');
+      // Step 2: For each message, test different signature processing approaches
+      for (let msgIndex = 0; msgIndex < messageVariants.length; msgIndex++) {
+        const testMessage = messageVariants[msgIndex];
+        console.log(`[DegenPark Auth] === TEST MESSAGE ${msgIndex + 1}: "${testMessage}" ===`);
         
         try {
-          error.retried = true; // Prevent infinite recursion
+          // Get wallet signature for this message
+          console.log('[DegenPark Auth] Requesting signature from wallet...');
+          const walletResponse = await signMessage(testMessage);
+          console.log('[DegenPark Auth] Wallet signature response:', {
+            hasPublicKey: !!walletResponse.publicKey,
+            hasSignature: !!walletResponse.signature,
+            signatureType: typeof walletResponse.signature,
+            signatureLength: walletResponse.signature?.length
+          });
           
-          // Test 1: Try with common Solana wallet message prefix
-          console.log('[DegenPark Auth] Test 1: Trying with Solana message prefix');
-          const altSignMessage1 = async (message) => {
-            // Some wallets add this prefix before signing
-            const prefixedMessage = `Solana Signed Message:\n${message}`;
-            console.log('[DegenPark Auth] Trying prefixed message:', prefixedMessage);
-            return signMessage(prefixedMessage);
-          };
+          // Extract the raw signature bytes
+          const rawSignature = new Uint8Array(walletResponse.signature);
+          console.log('[DegenPark Auth] Raw signature analysis:', {
+            totalLength: rawSignature.length,
+            first8Hex: Array.from(rawSignature.slice(0, 8)).map(b => '0x' + b.toString(16).padStart(2, '0')),
+            last8Hex: Array.from(rawSignature.slice(-8)).map(b => '0x' + b.toString(16).padStart(2, '0'))
+          });
           
-          const result1 = await getDegenParkAuthTokens(publicKey, altSignMessage1);
-          console.log('[DegenPark Auth] SUCCESS with Solana prefix!');
-          return result1;
+          // Step 3: Try different signature length variations
+          const signatureVariants = [];
           
-        } catch (prefixError) {
-          console.log('[DegenPark Auth] Prefix approach failed:', prefixError.message);
+          // Variant A: Full signature as-is
+          signatureVariants.push({
+            name: `Full ${rawSignature.length}-byte signature`,
+            bytes: rawSignature
+          });
           
-          try {
-            // Test 2: Try with exact message as bytes (no string encoding)
-            console.log('[DegenPark Auth] Test 2: Trying raw message bytes approach');
-            const altSignMessage2 = async (message) => {
-              // Try signing just the raw UTF-8 bytes without any wrapper
-              const messageBytes = new TextEncoder().encode(message);
-              console.log('[DegenPark Auth] Raw message bytes:', Array.from(messageBytes));
-              
-              // Call wallet signMessage directly with bytes
-              const walletResponse = await window.solana.signMessage(messageBytes);
-              console.log('[DegenPark Auth] Raw approach wallet response:', walletResponse);
-              
-              // Get the signature and try different processing
-              const rawSignature = new Uint8Array(walletResponse.signature);
-              console.log('[DegenPark Auth] Raw signature length:', rawSignature.length);
-              
-              // Try different signature lengths
-              let processedSignature;
-              if (rawSignature.length === 65) {
-                // Remove potential recovery byte
-                processedSignature = rawSignature.slice(0, 64);
-                console.log('[DegenPark Auth] Using 64-byte signature (removed recovery byte)');
-              } else if (rawSignature.length === 64) {
-                processedSignature = rawSignature;
-                console.log('[DegenPark Auth] Using 64-byte signature as-is');
-              } else {
-                processedSignature = rawSignature;
-                console.log('[DegenPark Auth] Using signature as-is, length:', rawSignature.length);
-              }
-              
-              // Encode with best available method
-              let encodedSig;
-              if (window.bs58 && window.bs58.encode) {
-                encodedSig = window.bs58.encode(processedSignature);
-                console.log('[DegenPark Auth] Encoded with bs58 library');
-              } else {
-                // Use our improved manual encoding
-                const base58Encode = (buffer) => {
-                  const ALPHABET = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
-                  if (buffer.length === 0) return '';
-                  let num = 0n;
-                  for (let i = 0; i < buffer.length; i++) {
-                    num = num * 256n + BigInt(buffer[i]);
-                  }
-                  let encoded = '';
-                  while (num > 0) {
-                    const remainder = num % 58n;
-                    num = num / 58n;
-                    encoded = ALPHABET[Number(remainder)] + encoded;
-                  }
-                  for (let i = 0; i < buffer.length && buffer[i] === 0; i++) {
-                    encoded = ALPHABET[0] + encoded;
-                  }
-                  return encoded;
-                };
-                encodedSig = base58Encode(processedSignature);
-                console.log('[DegenPark Auth] Encoded with manual implementation');
-              }
-              
-              console.log('[DegenPark Auth] Final processed signature:', encodedSig);
-              console.log('[DegenPark Auth] Final signature length:', encodedSig.length);
-              
-              return {
-                signature: encodedSig,
-                publicKey: walletResponse.publicKey ? walletResponse.publicKey.toString() : null
-              };
-            };
-            
-            const result2 = await getDegenParkAuthTokens(publicKey, altSignMessage2);
-            console.log('[DegenPark Auth] SUCCESS with raw message bytes approach!');
-            return result2;
-            
-          } catch (rawError) {
-            console.log('[DegenPark Auth] Raw message bytes approach failed:', rawError.message);
-            console.log('[DegenPark Auth] All signature approaches failed - authentication not possible');
+          // Variant B: If 65 bytes, try removing last byte (recovery byte)
+          if (rawSignature.length === 65) {
+            signatureVariants.push({
+              name: '64-byte signature (recovery removed)',
+              bytes: rawSignature.slice(0, 64)
+            });
           }
+          
+          // Variant C: If 64 bytes, maybe add a zero byte?
+          if (rawSignature.length === 64) {
+            const paddedSig = new Uint8Array(65);
+            paddedSig.set(rawSignature);
+            paddedSig[64] = 0;
+            signatureVariants.push({
+              name: '65-byte signature (zero-padded)',
+              bytes: paddedSig
+            });
+          }
+          
+          console.log(`[DegenPark Auth] Testing ${signatureVariants.length} signature variants for message "${testMessage}"`);
+          
+          // Step 4: For each signature variant, try different encoding methods
+          for (const sigVariant of signatureVariants) {
+            console.log(`[DegenPark Auth] === Testing: ${sigVariant.name} (${sigVariant.bytes.length} bytes) ===`);
+            
+            // Try both library and manual base58 encoding
+            const encodingMethods = [];
+            
+            // Method 1: bs58 library (if available)
+            if (window.bs58 && window.bs58.encode) {
+              try {
+                const libEncoded = window.bs58.encode(sigVariant.bytes);
+                encodingMethods.push({
+                  name: 'bs58 library',
+                  signature: libEncoded
+                });
+              } catch (libError) {
+                console.warn('[DegenPark Auth] bs58 library encoding failed:', libError.message);
+              }
+            }
+            
+            // Method 2: Manual base58 encoding (always available)
+            try {
+              const manualEncoded = manualBase58Encode(sigVariant.bytes);
+              encodingMethods.push({
+                name: 'manual encoding',
+                signature: manualEncoded
+              });
+            } catch (manualError) {
+              console.warn('[DegenPark Auth] Manual base58 encoding failed:', manualError.message);
+            }
+            
+            // Step 5: Test each encoding method
+            for (const encoding of encodingMethods) {
+              console.log(`[DegenPark Auth] Testing ${encoding.name}: length=${encoding.signature.length}, sample="${encoding.signature.substring(0, 10)}...${encoding.signature.substring(encoding.signature.length - 10)}"`);
+              
+              // Compare with known working signatures
+              console.log('[DegenPark Auth] Length comparison with working examples:');
+              console.log('[DegenPark Auth] - Working sig 1: 88 chars (Fo5Prm7P...R26qAj)');
+              console.log('[DegenPark Auth] - Working sig 2: 88 chars (3YoheiG3...9Vs6DH)'); 
+              console.log(`[DegenPark Auth] - Our signature: ${encoding.signature.length} chars (${encoding.signature.substring(0, 8)}...${encoding.signature.substring(encoding.signature.length - 6)})`);
+              console.log('[DegenPark Auth] Length matches working examples:', encoding.signature.length === 88);
+              
+              // Get the signing public key
+              const signingPublicKey = walletResponse.publicKey ? walletResponse.publicKey.toString() : publicKey;
+              
+              // Build request body (exactly like working sample.js)
+              const requestBody = {
+                signature: encoding.signature,
+                publicKey: signingPublicKey
+              };
+              
+              console.log('[DegenPark Auth] === MAKING API REQUEST ===');
+              console.log('[DegenPark Auth] Message variant:', `"${testMessage}"`);
+              console.log('[DegenPark Auth] Signature variant:', sigVariant.name);
+              console.log('[DegenPark Auth] Encoding method:', encoding.name);
+              console.log('[DegenPark Auth] Request body:', JSON.stringify(requestBody, null, 2));
+              
+              // Step 6: Make the API call (exactly matching sample.js)
+              const response = await fetch(`${DEGENPARK_API_BASE}/api/v1/auth/login/web3`, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'accept': 'application/json',
+                  'x-network': 'solana'  // CRITICAL: This header is in the working examples
+                },
+                body: JSON.stringify(requestBody)
+              });
+              
+              const responseData = await response.json();
+              console.log('[DegenPark Auth] API Response:', {
+                status: response.status,
+                ok: response.ok,
+                hasData: !!responseData.data,
+                hasToken: !!(responseData.data && responseData.data.accessToken)
+              });
+              
+              // Step 7: Check for success
+              if (response.ok && responseData.data && responseData.data.accessToken) {
+                console.log('[DegenPark Auth] 🎉 SUCCESS! Authentication worked with:');
+                console.log(`[DegenPark Auth] ✅ Message: "${testMessage}"`);
+                console.log(`[DegenPark Auth] ✅ Signature: ${sigVariant.name}`);
+                console.log(`[DegenPark Auth] ✅ Encoding: ${encoding.name}`);
+                console.log(`[DegenPark Auth] ✅ Access token obtained`);
+                
+                // Store the tokens
+                degenParkTokens = {
+                  accessToken: responseData.data.accessToken,
+                  refreshToken: responseData.data.refreshToken || null
+                };
+                
+                return degenParkTokens;
+              } else {
+                console.log(`[DegenPark Auth] ❌ Failed (${response.status}):`, responseData.error?.message || responseData.message || 'Unknown error');
+              }
+            }
+          }
+          
+          console.log(`[DegenPark Auth] All combinations failed for message: "${testMessage}"`);
+          
+        } catch (messageError) {
+          console.error(`[DegenPark Auth] Message "${testMessage}" failed completely:`, messageError.message);
         }
       }
       
+      // If we reach here, all attempts failed
+      throw new Error('🚫 All authentication attempts failed. DegenPark integration not possible with current wallet/signature format.');
+      
+    } catch (error) {
+      console.error('[DegenPark Auth] Complete authentication failure:', error.message);
       throw error;
     }
   };
+  
+  // Manual base58 encoding function (used as fallback)
+  function manualBase58Encode(buffer) {
+    const ALPHABET = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+    if (buffer.length === 0) return '';
+    
+    // Convert buffer to big integer
+    let num = 0n;
+    for (let i = 0; i < buffer.length; i++) {
+      num = num * 256n + BigInt(buffer[i]);
+    }
+    
+    // Convert to base58
+    let encoded = '';
+    while (num > 0n) {
+      const remainder = num % 58n;
+      num = num / 58n;
+      encoded = ALPHABET[Number(remainder)] + encoded;
+    }
+    
+    // Handle leading zeros
+    for (let i = 0; i < buffer.length && buffer[i] === 0; i++) {
+      encoded = ALPHABET[0] + encoded;
+    }
+    
+    return encoded;
+  }
 
   // Function to fetch user profile using JWT token
   const fetchDegenParkProfile = async (publicKey) => {
