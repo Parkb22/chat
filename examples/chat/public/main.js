@@ -99,8 +99,22 @@ $(function() {
         const signMessage = async (message) => {
           const encodedMessage = new TextEncoder().encode(message);
           const signedMessage = await window.solana.signMessage(encodedMessage);
-          // Convert signature to base58 format
-          return btoa(String.fromCharCode.apply(null, signedMessage.signature));
+          
+          // Convert signature to base58 format (Solana standard)
+          // DegenPark expects base58 encoded signature
+          try {
+            if (window.bs58 && window.bs58.encode) {
+              console.log('[DegenPark Auth] Using bs58 encoding');
+              return window.bs58.encode(signedMessage.signature);
+            } else {
+              console.warn('[DegenPark Auth] bs58 not available, using base64 fallback');
+              return btoa(String.fromCharCode.apply(null, signedMessage.signature));
+            }
+          } catch (error) {
+            console.error('[DegenPark Auth] Signature encoding error:', error);
+            // Fallback to base64
+            return btoa(String.fromCharCode.apply(null, signedMessage.signature));
+          }
         };
 
         // Authenticate with DegenPark
@@ -118,11 +132,23 @@ $(function() {
         }
       } catch (degenParkError) {
         console.warn('[DegenPark] Authentication failed:', degenParkError.message);
-        degenParkStatus = '⚠️ Account not found on DegenPark - creating chat-only profile';
+        
+        // Provide different error messages based on error type
+        if (degenParkError.message.includes('Failed to fetch') || degenParkError.message.includes('ERR_NAME_NOT_RESOLVED')) {
+          degenParkStatus = '🔌 DegenPark API unavailable - using chat-only mode';
+          console.log('[DegenPark] API connection failed, continuing with chat-only mode');
+        } else if (degenParkError.message.includes('404') || degenParkError.message.includes('not found')) {
+          degenParkStatus = '⚠️ Account not found on DegenPark - creating chat-only profile';
+        } else {
+          degenParkStatus = '❌ DegenPark authentication error - using chat-only mode';
+        }
       }
 
       // Update wallet UI
       $('.connectWallet').text('✅ Wallet Connected').prop('disabled', true);
+      
+      console.log('[Wallet] Updating UI with wallet:', publicKey);
+      console.log('[Wallet] DegenPark status:', degenParkStatus);
       
       // Show username page with DegenPark status
       $('.wallet.page').hide();
@@ -132,14 +158,19 @@ $(function() {
       const $degenParkStatus = $('.degenpark-status');
       $degenParkStatus.text(degenParkStatus).show();
       
+      // Update wallet display immediately
+      updateUserDisplay();
+      
       // If we have a DegenPark username, pre-fill it
       if (degenParkProfile && degenParkProfile.username) {
         $('.usernameInput').val(degenParkProfile.username);
         $('.usernameInput').prop('readonly', true);
         $('.setUsername').text('Continue with DegenPark Profile');
+        console.log('[Wallet] Pre-filled DegenPark username:', degenParkProfile.username);
       } else {
         $('.usernameInput').prop('readonly', false);
         $('.setUsername').text('Set Username');
+        console.log('[Wallet] Manual username entry required');
       }
 
     } catch (error) {
@@ -151,7 +182,7 @@ $(function() {
 
 
   // DegenPark API integration with JWT authentication
-  const DEGENPARK_API_BASE = 'https://api.degenpark.com';
+  const DEGENPARK_API_BASE = 'https://api.degenpark.io';
   let degenParkTokens = null; // Store access and refresh tokens
 
   // Function to get auth tokens using wallet signature
@@ -174,11 +205,12 @@ $(function() {
       };
       
       console.log('[DegenPark Auth] Sending auth request');
-      const response = await fetch(`${DEGENPARK_API_BASE}/auth/login/web3`, {
+      const response = await fetch(`${DEGENPARK_API_BASE}/api/v1/auth/login/web3`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Accept': 'application/json'
+          'Accept': 'application/json',
+          'x-network': 'solana'
         },
         body: JSON.stringify(requestBody)
       });
@@ -210,11 +242,12 @@ $(function() {
       }
 
       console.log('[DegenPark Profile] Fetching profile for:', publicKey);
-      const response = await fetch(`${DEGENPARK_API_BASE}/users/profile`, {
+      const response = await fetch(`${DEGENPARK_API_BASE}/api/v1/users/profile`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${degenParkTokens.accessToken}`,
-          'Accept': 'application/json'
+          'Accept': 'application/json',
+          'x-network': 'solana'
         }
       });
 
@@ -243,8 +276,22 @@ $(function() {
 
   // Display user info with DegenPark integration
   const updateUserDisplay = () => {
+    console.log('[UpdateUserDisplay] Wallet:', window.walletAddress, 'Username:', username);
+    console.log('[UpdateUserDisplay] $walletAddress element found:', $walletAddress.length);
+    console.log('[UpdateUserDisplay] $usernameDisplay element found:', $usernameDisplay.length);
+    
     if (window.walletAddress) {
-      $walletAddress.text(window.walletAddress.substring(0, 8) + '...' + window.walletAddress.substring(window.walletAddress.length - 8));
+      const shortWallet = window.walletAddress.substring(0, 8) + '...' + window.walletAddress.substring(window.walletAddress.length - 8);
+      console.log('[UpdateUserDisplay] Setting wallet display to:', shortWallet);
+      
+      if ($walletAddress.length > 0) {
+        $walletAddress.text(shortWallet);
+        console.log('[UpdateUserDisplay] Wallet address set successfully');
+      } else {
+        console.error('[UpdateUserDisplay] .walletAddress element not found in DOM');
+      }
+    } else {
+      console.log('[UpdateUserDisplay] No wallet address found');
     }
     
     if (username) {
@@ -254,6 +301,9 @@ $(function() {
       } else {
         $usernameDisplay.text(`(${username})`);
       }
+      console.log('[UpdateUserDisplay] Username display updated:', username);
+    } else {
+      console.log('[UpdateUserDisplay] No username found');
     }
   };
 
@@ -300,6 +350,19 @@ $(function() {
       console.error('[Wallet] Error disconnecting:', error);
     }
   };
+
+  // Username button event handler
+  $(document).on('click', '.setUsername', function() {
+    setUsername();
+  });
+
+  // Username input Enter key handler
+  $usernameInput.on('keypress', function(e) {
+    if (e.which === 13) { // Enter key
+      e.preventDefault();
+      setUsername();
+    }
+  });
 
   // Wallet connection handlers
   $(document).on('click', '.connectWallet', function() {
@@ -1447,7 +1510,7 @@ $(function() {
         sendMessage();
         socket.emit('stop typing');
         typing = false;
-      } else if (walletAddress) {
+      } else if (window.walletAddress) {
         setUsername();
       }
     }
