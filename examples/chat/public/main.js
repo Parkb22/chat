@@ -84,44 +84,76 @@ $(function() {
     }
   };
 
+  // Connect to wallet with DegenPark API integration
   const connectWallet = async (walletType) => {
     try {
-      $walletStatus.text('Connecting...');
-      updateConnectionStatus('connecting');
-      
       const walletProvider = getWalletProvider(walletType);
-      
       if (!walletProvider) {
-        $walletStatus.text(`${walletType} wallet not found. Please install the extension.`);
-        updateConnectionStatus('disconnected');
+        $walletStatus.text(`${walletType.charAt(0).toUpperCase() + walletType.slice(1)} wallet not found. Please install it first.`);
         return;
       }
 
-      const response = await walletProvider.connect();
+      $walletStatus.text('Connecting to wallet...');
+      
+      const resp = await walletProvider.connect();
       wallet = walletProvider;
-      walletAddress = response.publicKey.toString();
+      walletAddress = resp.publicKey.toString();
       
-      $walletStatus.text('Verifying ownership...');
+      console.log('Connected to wallet:', walletAddress);
       
-      // Create a message to sign for authentication
+      // Create authentication message
       const timestamp = Date.now();
-      const message = `Sign this message to authenticate with DegenChat\nWallet: ${walletAddress}\nTimestamp: ${timestamp}`;
-      const encodedMessage = new TextEncoder().encode(message);
+      const authMessage = `Authenticate with DegenPark Chat\nWallet: ${walletAddress}\nTimestamp: ${timestamp}`;
       
-      // Request signature
-      const signedMessage = await walletProvider.signMessage(encodedMessage, 'utf8');
+      $walletStatus.text('Please sign the authentication message...');
       
-      $walletStatus.text('Connected and verified!');
-      $connectedWallet.text(walletAddress.substring(0, 4) + '...' + walletAddress.substring(walletAddress.length - 4));
+      // Sign the message
+      const encodedMessage = new TextEncoder().encode(authMessage);
+      const signedMessage = await walletProvider.signMessage(encodedMessage, "utf8");
       
-      // Check if user already has a username for this wallet
-      socket.emit('check user', { 
-        walletAddress, 
-        signature: Array.from(signedMessage.signature),
-        message: message,
-        timestamp: timestamp
-      });
+      console.log('Message signed successfully');
       
+      // Try DegenPark API first
+      $walletStatus.text('Checking DegenPark account...');
+      const degenParkUser = await tryDegenParkAuth(walletAddress, Array.from(signedMessage.signature));
+      
+      if (degenParkUser) {
+        // User exists on DegenPark - use their data
+        console.log('DegenPark user found:', degenParkUser);
+        $walletStatus.text(`Welcome back, ${degenParkUser.username}!`);
+        
+        // Store DegenPark user data
+        window.degenParkUser = degenParkUser;
+        
+        // Use DegenPark username and proceed directly to chat
+        username = degenParkUser.username;
+        window.username = username;
+        
+        // Proceed to chat directly
+        proceedToChat(walletAddress, authMessage, signedMessage.signature, timestamp);
+        
+      } else {
+        // User not found on DegenPark - proceed with manual username entry
+        console.log('User not found on DegenPark, proceeding with manual username entry');
+        $walletStatus.text('Account not found on DegenPark. Please choose a username.');
+        
+        // Store auth data for later use
+        window.pendingAuth = {
+          walletAddress,
+          authMessage,
+          signature: signedMessage.signature,
+          timestamp
+        };
+        
+        // Check if user exists in our chat system
+        socket.emit('check user', {
+          walletAddress: walletAddress,
+          message: authMessage,
+          signature: Array.from(signedMessage.signature),
+          timestamp: timestamp
+        });
+      }
+
     } catch (error) {
       console.error('Wallet connection failed:', error);
       if (error.message?.includes('User rejected')) {
@@ -130,6 +162,91 @@ $(function() {
         $walletStatus.text('Connection failed. Please try again.');
       }
     }
+  };
+
+  // Try to authenticate with DegenPark API
+  const tryDegenParkAuth = async (publicKey, signature) => {
+    try {
+      console.log('Attempting DegenPark authentication for:', publicKey);
+      
+      // Convert signature array to base64 string properly
+      const signatureBase64 = btoa(String.fromCharCode(...signature));
+      console.log('Signature length:', signature.length, 'Base64 length:', signatureBase64.length);
+      
+      const response = await fetch('https://api.degenpark.io/api/v1/auth/login/web3', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-network': 'solana'
+        },
+        body: JSON.stringify({
+          publicKey: publicKey,
+          signature: signatureBase64
+        })
+      });
+
+      console.log('DegenPark API response status:', response.status);
+      
+      if (response.ok) {
+        const result = await response.json();
+        console.log('DegenPark API success:', result);
+        
+        if (result.data && result.data.user) {
+          return {
+            id: result.data.user.id,
+            username: result.data.user.username,
+            email: result.data.user.email,
+            avatar: result.data.user.avatar,
+            publicKey: result.data.user.publicKey,
+            accessToken: result.data.accessToken,
+            refreshToken: result.data.refreshToken
+          };
+        }
+      } else {
+        const errorText = await response.text();
+        console.log('DegenPark API error response:', errorText);
+      }
+      
+      return null; // User not found or API error
+    } catch (error) {
+      console.log('DegenPark API call failed:', error);
+      return null; // Fallback to manual username
+    }
+  };
+
+  // Display user info with DegenPark integration
+  const updateUserDisplay = () => {
+    if (walletAddress) {
+      $walletAddress.text(walletAddress.substring(0, 8) + '...' + walletAddress.substring(walletAddress.length - 8));
+    }
+    
+    if (username) {
+      // Add DegenPark badge if user is from DegenPark
+      if (window.degenParkUser) {
+        $usernameDisplay.html(`(${username}) <span class="degenpark-badge" title="DegenPark Verified">DP</span>`);
+      } else {
+        $usernameDisplay.text(`(${username})`);
+      }
+    }
+  };
+
+  // Proceed directly to chat (for DegenPark users)
+  const proceedToChat = (walletAddress, authMessage, signature, timestamp) => {
+    $walletPage.removeClass('active');
+    $chatPage.addClass('active');
+    $currentInput = $inputMessage.focus();
+
+    // Display user info with DegenPark integration
+    updateUserDisplay();
+
+    // Authenticate with our chat server with DegenPark data
+    socket.emit('check user', {
+      walletAddress: walletAddress,
+      message: authMessage,
+      signature: Array.from(signature),
+      timestamp: timestamp,
+      degenParkUser: window.degenParkUser // Include DegenPark user data
+    });
   };
 
   // Disconnect functionality
@@ -199,14 +316,12 @@ $(function() {
   // Sets the client's username
   const setUsername = () => {
     const inputUsername = cleanInput($usernameInput.val().trim());
-    const validation = validateUsername(inputUsername);
 
-    if (!validation.valid) {
-      $('.usernameNote small').text(validation.error).css('color', '#ff6b6b');
+    if (!inputUsername) {
       return;
     }
 
-    if (inputUsername && walletAddress) {
+    if (inputUsername && (walletAddress || window.pendingAuth)) {
       username = inputUsername;
       window.username = username;
       $usernamePage.removeClass('active');
@@ -214,20 +329,52 @@ $(function() {
       $usernamePage.off('click');
       $currentInput = $inputMessage.focus();
 
-      // Display wallet and username info
-      $walletAddress.text(walletAddress.substring(0, 8) + '...' + walletAddress.substring(walletAddress.length - 8));
-      $usernameDisplay.text(`(${username})`);
+      // Use pending auth data if available (from DegenPark flow)
+      let authData;
+      if (window.pendingAuth) {
+        authData = window.pendingAuth;
+        walletAddress = authData.walletAddress; // Set walletAddress from pending auth
+      } else {
+        // Legacy flow - this shouldn't happen with new DegenPark integration
+        console.warn('No pending auth data found');
+        return;
+      }
 
-      // Tell the server about the wallet-username combination
-      socket.emit('add user', { walletAddress, username });
+      // Display wallet and username info
+      $walletAddress.text(authData.walletAddress.substring(0, 8) + '...' + authData.walletAddress.substring(authData.walletAddress.length - 8));
+      $usernameDisplay.text(`(${username})`);
+      $connectedWallet.text(authData.walletAddress.substring(0, 4) + '...' + authData.walletAddress.substring(authData.walletAddress.length - 4));
+
+      // Use updateUserDisplay for consistent formatting
+      updateUserDisplay();
+
+      // Tell the server your username with stored auth data
+      socket.emit('add user', { 
+        walletAddress: authData.walletAddress, 
+        username: username 
+      });
+
+      // Clear pending auth data
+      delete window.pendingAuth;
     }
-  }
+  };
 
   const showUsernamePage = () => {
     $walletPage.removeClass('active');
     $usernamePage.addClass('active');
     $currentInput = $usernameInput.focus();
-  }
+    
+    // Display connected wallet info
+    const displayWallet = window.pendingAuth ? window.pendingAuth.walletAddress : walletAddress;
+    if (displayWallet) {
+      $connectedWallet.text(displayWallet.substring(0, 8) + '...' + displayWallet.substring(displayWallet.length - 8));
+    }
+    
+    // Show DegenPark status if user came from DegenPark flow
+    if (window.pendingAuth) {
+      $('.degenpark-status').show();
+    }
+  };
 
   // Check if message is an admin command
   const isAdminCommand = (message) => {
@@ -1321,10 +1468,9 @@ $(function() {
     $chatPage.addClass('active');
     $currentInput = $inputMessage.focus();
     
-    // Display user info
-    $walletAddress.text(walletAddress.substring(0, 8) + '...' + walletAddress.substring(walletAddress.length - 8));
-    $usernameDisplay.text(`(${username})`);
-    
+    // Display user info with DegenPark integration
+    updateUserDisplay();
+
     // Join the chat with existing credentials
     socket.emit('add user', { walletAddress, username });
   });
@@ -1349,7 +1495,9 @@ $(function() {
       if (!window.activeSockets) window.activeSockets = {};
       window.activeSockets[username] = { 
         walletAddress: walletAddress, 
-        isAdmin: data.isAdmin 
+        isAdmin: data.isAdmin,
+        isDegenPark: !!window.degenParkUser,
+        avatar: window.degenParkUser?.avatar || null
       };
 
     }
@@ -1385,23 +1533,23 @@ $(function() {
 
   socket.on('user joined', (data) => {
     const adminText = data.isAdmin ? ' ★' : '';
-    log(`${data.username}${adminText} joined`);
+    const degenParkText = data.isDegenPark ? ' [DP]' : '';
+    log(`${data.username}${adminText}${degenParkText} joined`);
     updateUserCount(data.numUsers);
     
     // Add to active users for tagging
     if (data.walletAddress) {
       activeUsers.set(data.username, data.walletAddress);
-
     }
     
-    // Store socket info for admin checking in autocomplete
+    // Store socket info for admin checking in autocomplete and DegenPark data
     if (!window.activeSockets) window.activeSockets = {};
     window.activeSockets[data.username] = { 
       walletAddress: data.walletAddress, 
-      isAdmin: data.isAdmin 
+      isAdmin: data.isAdmin,
+      isDegenPark: data.isDegenPark || false,
+      avatar: data.avatar || null
     };
-    
-
     
     // Update user count in parent window
     if (window.parent !== window) {
@@ -1472,9 +1620,9 @@ $(function() {
       const currentUnread = unreadDMs.get(senderUsername) || 0;
       unreadDMs.set(senderUsername, currentUnread + 1);
       
-      // Update user list if menu is open
+      // Update DM count if menu is open
       if (menuOpen) {
-        updateUserList();
+        updateDMCount();
       }
       
       // Show notification
@@ -1711,7 +1859,7 @@ $(function() {
   const $menuDropdown = $('.menu-dropdown');
   const $menuSoundToggle = $('.menu-item.sound-toggle');
   const $disconnectMenuBtn = $('.disconnect-menu-btn');
-  const $userList = $('#user-list');
+  const $dmHeaderBtn = $('#direct-messages-header');
   const $dmCount = $('.dm-count');
 
   // Menu state
@@ -1741,6 +1889,12 @@ $(function() {
       playNotificationSound('click'); // Test sound
     });
 
+    // Direct message search trigger
+    $dmHeaderBtn.on('click', () => {
+      closeMenu();
+      openDMSearchModal();
+    });
+
     // Disconnect from menu
     $disconnectMenuBtn.on('click', () => {
       closeMenu();
@@ -1765,7 +1919,7 @@ $(function() {
     menuOpen = true;
     $hamburgerButton.addClass('active');
     $menuDropdown.addClass('visible');
-    updateUserList();
+    updateDMCount(); // Update DM count display
   };
 
   const closeMenu = () => {
@@ -1790,37 +1944,8 @@ $(function() {
     }
   };
 
-  // Update user list in menu
-  const updateUserList = () => {
-    if (!window.activeSockets) return;
-    
-    $userList.empty();
-    
-    Object.entries(window.activeSockets).forEach(([username, userData]) => {
-      // Skip current user
-      if (username === window.username) return;
-      
-      const unreadCount = unreadDMs.get(username) || 0;
-      const isOnline = true; // For now, assume online users are in activeSockets
-      
-      const $userItem = $(`
-        <div class="menu-user-item" data-username="${username}" data-wallet="${userData.walletAddress}">
-          <div class="menu-user-avatar">${username.charAt(0).toUpperCase()}</div>
-          <div class="menu-user-name">${username}${userData.isAdmin ? ' ★' : ''}</div>
-          ${unreadCount > 0 ? `<div class="menu-item-badge">${unreadCount}</div>` : ''}
-          <div class="menu-user-status ${isOnline ? 'online' : 'offline'}"></div>
-        </div>
-      `);
-      
-      $userItem.on('click', () => {
-        openDirectMessage(username, userData.walletAddress);
-        closeMenu();
-      });
-      
-      $userList.append($userItem);
-    });
-    
-    // Update total DM count
+  // Update DM count display
+  const updateDMCount = () => {
     const totalUnread = Array.from(unreadDMs.values()).reduce((sum, count) => sum + count, 0);
     if (totalUnread > 0) {
       $dmCount.text(totalUnread).removeClass('hidden');
@@ -1829,24 +1954,112 @@ $(function() {
     }
   };
 
-  // Direct Message functionality
+  // Direct Message functionality  
+  const openDMSearchModal = () => {
+    const modalHtml = `
+      <div class="dm-search-modal-overlay" id="dm-search-modal">
+        <div class="dm-search-modal">
+          <div class="dm-search-modal-header">
+            <h3>Send Direct Message</h3>
+            <button class="dm-search-modal-close">×</button>
+          </div>
+          <div class="dm-search-modal-content">
+            <input type="text" id="dm-search-input" placeholder="Type username to find..." />
+            <div class="dm-search-results" id="dm-search-results">
+              <div class="dm-search-hint">Type to search for users</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+    $('body').append(modalHtml);
+
+    $('#dm-search-input').on('input', () => {
+      const query = $('#dm-search-input').val().toLowerCase().trim();
+      const $results = $('#dm-search-results');
+      $results.empty();
+
+      if (query.length === 0) {
+        $results.append('<div class="dm-search-hint">Type to search for users</div>');
+        return;
+      }
+
+      let found = false;
+      if (window.activeSockets) {
+        Object.entries(window.activeSockets).forEach(([userName, userData]) => {
+          // Skip current user
+          if (userName === window.username) return;
+          
+          if (userName.toLowerCase().includes(query)) {
+            found = true;
+            const isDegenPark = userData.isDegenPark || false;
+            const avatar = userData.avatar || null;
+            
+            let avatarHtml;
+            if (avatar) {
+              avatarHtml = `<img src="${avatar}" alt="${userName}" class="dm-search-avatar" />`;
+            } else {
+              avatarHtml = `<div class="dm-search-avatar-text">${userName.charAt(0).toUpperCase()}</div>`;
+            }
+            
+            const $item = $(`
+              <div class="dm-search-item" data-username="${userName}" data-wallet="${userData.walletAddress}">
+                <div class="dm-search-avatar-container">${avatarHtml}</div>
+                <div class="dm-search-user-info">
+                  <div class="dm-search-username">
+                    ${userName}${userData.isAdmin ? ' ★' : ''}
+                    ${isDegenPark ? ' <span style="color:#8b5cf6;font-size:0.7rem;">DP</span>' : ''}
+                  </div>
+                  <div class="dm-search-wallet">${userData.walletAddress.substring(0, 8)}...</div>
+                </div>
+              </div>
+            `);
+            
+            $item.on('click', () => {
+              $('#dm-search-modal').remove();
+              openDirectMessage(userName, userData.walletAddress);
+            });
+            
+            $results.append($item);
+          }
+        });
+      }
+
+      if (!found) {
+        $results.append('<div class="dm-search-hint">No users found</div>');
+      }
+    });
+
+    // Close modal handlers
+    $('.dm-search-modal-close, .dm-search-modal-overlay').on('click', function(e) {
+      if (e.target === this) {
+        $('#dm-search-modal').remove();
+      }
+    });
+
+    // Focus the search input
+    $('#dm-search-input').focus();
+  };
+
+  // Open direct message conversation
   const openDirectMessage = (targetUsername, targetWallet) => {
     console.log(`Opening DM with ${targetUsername} (${targetWallet})`);
     
     // Mark messages as read
     unreadDMs.delete(targetUsername);
-    updateUserList();
+    updateDMCount();
     
-    // TODO: Implement DM interface - for now just show in console
     const conversation = directMessages.get(targetUsername) || [];
     console.log('DM Conversation:', conversation);
     
-    // You could open a modal or sidebar here for the DM interface
     showDirectMessageModal(targetUsername, targetWallet);
   };
 
+  // Show the direct message modal
   const showDirectMessageModal = (targetUsername, targetWallet) => {
-    // Create a simple DM modal for now
+    // Remove any existing DM modal
+    $('#dm-modal').remove();
+    
     const modalHtml = `
       <div class="dm-modal-overlay" id="dm-modal">
         <div class="dm-modal">
@@ -1884,19 +2097,44 @@ $(function() {
     // Scroll to bottom
     $dmMessages.scrollTop($dmMessages[0].scrollHeight);
     
-    // Handle sending messages
-    $('#dm-send, #dm-input').on('keypress click', function(e) {
-      if (e.type === 'click' || e.which === 13) {
-        const message = $('#dm-input').val().trim();
-        if (message) {
-          sendDirectMessage(targetUsername, targetWallet, message);
-          $('#dm-input').val('');
-        }
-      }
+    // Handle sending messages - FIXED: Prevent event bubbling
+    $('#dm-send').on('click', function(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      e.stopImmediatePropagation();
+      sendDMMessage();
     });
     
-    // Close modal
-    $('.dm-modal-close, .dm-modal-overlay').on('click', function(e) {
+    $('#dm-input').on('keypress', function(e) {
+      e.stopPropagation(); // Prevent main chat input from receiving this
+      e.stopImmediatePropagation();
+      if (e.which === 13) { // Enter key
+        e.preventDefault();
+        sendDMMessage();
+      }
+    });
+
+    // Prevent any input events from bubbling to main chat
+    $('#dm-input').on('keydown keyup input', function(e) {
+      e.stopPropagation();
+      e.stopImmediatePropagation();
+    });
+    
+    function sendDMMessage() {
+      const message = $('#dm-input').val().trim();
+      if (message) {
+        sendDirectMessage(targetUsername, targetWallet, message);
+        $('#dm-input').val('');
+      }
+    }
+    
+    // Close modal handlers
+    $('.dm-modal-close').on('click', function(e) {
+      e.preventDefault();
+      $('#dm-modal').remove();
+    });
+    
+    $('.dm-modal-overlay').on('click', function(e) {
       if (e.target === this) {
         $('#dm-modal').remove();
       }
@@ -1906,6 +2144,7 @@ $(function() {
     $('#dm-input').focus();
   };
 
+  // Send direct message
   const sendDirectMessage = (targetUsername, targetWallet, message) => {
     console.log(`Sending DM to ${targetUsername}: ${message}`);
     

@@ -33,11 +33,8 @@
               <div class="menu-section">
                 <div class="menu-item" id="direct-messages-header">
                   <span class="menu-item-icon">💬</span>
-                  <span class="menu-item-text">Direct Messages</span>
+                  <span class="menu-item-text">Send Direct Message</span>
                   <span class="menu-item-badge dm-count hidden">0</span>
-                </div>
-                <div class="menu-user-list" id="user-list">
-                  <!-- Users will be populated here -->
                 </div>
               </div>
               
@@ -72,7 +69,12 @@
     <li class="username page">
       <div class="form">
         <h3 class="title">Choose your nickname</h3>
-        <p class="walletInfo">Connected wallet: <span class="connectedWallet"></span></p>
+        <p class="walletInfo">
+          Connected wallet: <span class="connectedWallet"></span>
+          <div class="degenpark-status" style="display: none;">
+            ⚠️ Account not found on DegenPark - creating chat-only profile
+          </div>
+        </p>
         <input class="usernameInput" type="text" maxlength="14" placeholder="Enter your nickname" />
         <div class="usernameNote">
           <small>This nickname will be permanently linked to your wallet address</small>

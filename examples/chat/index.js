@@ -212,11 +212,14 @@ io.on('connection', (socket) => {
       socket.walletAddress = walletAddress;
     }
 
-    // Store socket info
+    // Store socket info with DegenPark data
     activeSockets.set(socket.id, {
       username: socket.username,
       walletAddress: socket.walletAddress,
-      isAdmin: isAdmin(socket.walletAddress)
+      isAdmin: isAdmin(socket.walletAddress),
+      isDegenPark: !!userData.degenParkUser,
+      avatar: userData.degenParkUser?.avatar || null,
+      degenParkId: userData.degenParkUser?.id || null
     });
 
     // Clear temporary authentication data
@@ -253,7 +256,9 @@ io.on('connection', (socket) => {
       username: socket.username,
       numUsers: numUsers,
       walletAddress: socket.walletAddress,
-      isAdmin: isAdmin(socket.walletAddress)
+      isAdmin: isAdmin(socket.walletAddress),
+      isDegenPark: !!userData.degenParkUser,
+      avatar: userData.degenParkUser?.avatar || null
     });
   });
 
