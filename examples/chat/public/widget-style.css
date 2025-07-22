@@ -1932,3 +1932,44 @@ ul {
 .dm-search-results::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.3);
 } 
+
+/* DM Modal offline notice */
+.dm-offline-notice {
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.1), rgba(37, 99, 235, 0.05));
+  border: 1px solid rgba(59, 130, 246, 0.2);
+  border-radius: 8px;
+  color: #60a5fa;
+  padding: 12px 16px;
+  margin: 12px 16px;
+  font-size: 0.85rem;
+  text-align: center;
+  font-weight: 500;
+}
+
+/* DM Search offline user styling */
+.dm-search-item.offline {
+  opacity: 0.8;
+  background: rgba(75, 85, 99, 0.1);
+}
+
+.dm-search-item.offline:hover {
+  background: rgba(99, 102, 241, 0.08);
+}
+
+.dm-search-item.offline .dm-search-username {
+  color: #d1d5db;
+}
+
+.dm-search-item.offline .dm-search-wallet {
+  color: #9ca3af;
+} 
+
+/* DM offline delivery indicator */
+.dm-offline-indicator {
+  display: block;
+  color: #9ca3af;
+  font-size: 0.75rem;
+  font-style: italic;
+  margin-top: 4px;
+  opacity: 0.8;
+} 

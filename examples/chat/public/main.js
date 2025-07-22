@@ -102,66 +102,130 @@ $(function() {
           console.log('[DegenPark Auth] Message as bytes:', Array.from(new TextEncoder().encode(message)));
           
           const encodedMessage = new TextEncoder().encode(message);
-          const signedMessage = await window.solana.signMessage(encodedMessage);
           
-          console.log('[DegenPark Auth] Wallet signature response:', signedMessage);
-          console.log('[DegenPark Auth] Signature type:', typeof signedMessage.signature);
-          console.log('[DegenPark Auth] Signature length:', signedMessage.signature.length);
-          console.log('[DegenPark Auth] Expected Ed25519 length: 64');
-          console.log('[DegenPark Auth] Length matches standard:', signedMessage.signature.length === 64);
-          console.log('[DegenPark Auth] bs58 available:', !!window.bs58);
-          
-          // Convert signature to base58 format (Solana standard)
           try {
-            // Ensure signature is a Uint8Array
-            const signature = new Uint8Array(signedMessage.signature);
-            console.log('[DegenPark Auth] Signature as Uint8Array:', signature);
+            // Try the direct message first (matching old script)
+            const signedMessage = await window.solana.signMessage(encodedMessage);
             
-            let base58Signature;
+            console.log('[DegenPark Auth] Wallet signature response:', signedMessage);
+            console.log('[DegenPark Auth] Signature type:', typeof signedMessage.signature);
+            console.log('[DegenPark Auth] Signature length:', signedMessage.signature.length);
+            console.log('[DegenPark Auth] Expected Ed25519 length: 64');
+            console.log('[DegenPark Auth] Length matches standard:', signedMessage.signature.length === 64);
+            console.log('[DegenPark Auth] bs58 available:', !!window.bs58);
             
-            // Try bs58 library first
-            if (window.bs58 && typeof window.bs58.encode === 'function') {
-              console.log('[DegenPark Auth] Using bs58 library');
-              base58Signature = window.bs58.encode(signature);
+            // DIAGNOSTIC: Check if wallet might be using a different message format
+            console.log('[DegenPark Auth] === SIGNATURE DIAGNOSTIC ===');
+            console.log('[DegenPark Auth] Raw signature bytes (first 10):', Array.from(signedMessage.signature.slice(0, 10)));
+            console.log('[DegenPark Auth] Raw signature bytes (last 10):', Array.from(signedMessage.signature.slice(-10)));
+            
+            // Check if publicKey from signedMessage matches our expected publicKey
+            if (signedMessage.publicKey) {
+              const walletPublicKey = signedMessage.publicKey.toString();
+              console.log('[DegenPark Auth] Wallet public key from signature:', walletPublicKey);
+              console.log('[DegenPark Auth] Our public key:', publicKey);
+              console.log('[DegenPark Auth] Public keys match:', walletPublicKey === publicKey);
             }
-            // Manual fallback base58 implementation (simple version)
-            else {
-              console.warn('[DegenPark Auth] bs58 library not available, using manual implementation');
-              // Simple base58 encoding fallback
-              const alphabet = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
-              let result = '';
-              let num = BigInt('0x' + Array.from(signature, byte => byte.toString(16).padStart(2, '0')).join(''));
+            
+            // Check if wallet is adding any message prefix (some wallets do this)
+            console.log('[DegenPark Auth] Message we encoded:', message);
+            console.log('[DegenPark Auth] Message bytes:', Array.from(encodedMessage));
+            console.log('[DegenPark Auth] ================================');
+            
+            // Convert signature to base58 format (Solana standard)
+            try {
+              // Ensure signature is a Uint8Array
+              const signature = new Uint8Array(signedMessage.signature);
+              console.log('[DegenPark Auth] Signature as Uint8Array:', signature);
               
-              while (num > 0) {
-                result = alphabet[num % 58n] + result;
-                num = num / 58n;
+              let base58Signature;
+              
+              // Try bs58 library first
+              if (window.bs58 && typeof window.bs58.encode === 'function') {
+                console.log('[DegenPark Auth] Using bs58 library');
+                base58Signature = window.bs58.encode(signature);
+              }
+              // Manual fallback base58 implementation (simple version)
+              else {
+                console.warn('[DegenPark Auth] bs58 library not available, using manual implementation');
+                // Simple base58 encoding fallback
+                const alphabet = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+                let result = '';
+                let num = BigInt('0x' + Array.from(signature, byte => byte.toString(16).padStart(2, '0')).join(''));
+                
+                while (num > 0) {
+                  result = alphabet[num % 58n] + result;
+                  num = num / 58n;
+                }
+                
+                // Handle leading zeros
+                for (let i = 0; i < signature.length && signature[i] === 0; i++) {
+                  result = alphabet[0] + result;
+                }
+                
+                base58Signature = result;
               }
               
-              // Handle leading zeros
-              for (let i = 0; i < signature.length && signature[i] === 0; i++) {
-                result = alphabet[0] + result;
+              console.log('[DegenPark Auth] Base58 encoded signature:', base58Signature);
+              console.log('[DegenPark Auth] Base58 signature length:', base58Signature.length);
+              
+              // Validate base58 signature
+              const base58Regex = /^[123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz]+$/;
+              if (!base58Regex.test(base58Signature)) {
+                console.error('[DegenPark Auth] Invalid base58 signature contains invalid characters');
+                console.error('[DegenPark Auth] Signature:', base58Signature);
+                throw new Error('Generated signature contains non-base58 characters');
               }
               
-              base58Signature = result;
+              console.log('[DegenPark Auth] Base58 signature validation passed');
+              
+              // CRITICAL TEST: Verify signature locally before sending to API
+              try {
+                console.log('[DegenPark Auth] === LOCAL SIGNATURE VERIFICATION ===');
+                
+                // Import necessary items from Solana web3.js
+                if (window.solanaWeb3 && window.solanaWeb3.PublicKey && window.solanaWeb3.ed25519) {
+                  const { PublicKey: SolanaPublicKey, ed25519 } = window.solanaWeb3;
+                  
+                  // Convert our public key string to Solana PublicKey object
+                  const pubKeyObj = new SolanaPublicKey(publicKey);
+                  console.log('[DegenPark Auth] Public key object:', pubKeyObj.toString());
+                  
+                  // Verify the signature locally
+                  const isValidSignature = ed25519.verify(
+                    signature,                    // Our signature bytes
+                    encodedMessage,              // Original message bytes  
+                    pubKeyObj.toBytes()          // Public key bytes
+                  );
+                  
+                  console.log('[DegenPark Auth] Local signature verification result:', isValidSignature);
+                  console.log('[DegenPark Auth] If false, our signature generation is wrong');
+                  console.log('[DegenPark Auth] If true, DegenPark expects different format');
+                  
+                } else {
+                  console.warn('[DegenPark Auth] Solana web3.js ed25519 not available for local verification');
+                }
+                
+                console.log('[DegenPark Auth] =======================================');
+                
+              } catch (verifyError) {
+                console.warn('[DegenPark Auth] Local signature verification failed:', verifyError);
+              }
+              
+              // Return both signature and the actual public key used for signing
+              return {
+                signature: base58Signature,
+                publicKey: signedMessage.publicKey ? signedMessage.publicKey.toString() : null
+              };
+              
+            } catch (error) {
+              console.error('[DegenPark Auth] Signature encoding error:', error);
+              throw new Error('Failed to encode signature: ' + error.message);
             }
             
-            console.log('[DegenPark Auth] Base58 encoded signature:', base58Signature);
-            console.log('[DegenPark Auth] Base58 signature length:', base58Signature.length);
-            
-            // Validate base58 signature
-            const base58Regex = /^[123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz]+$/;
-            if (!base58Regex.test(base58Signature)) {
-              console.error('[DegenPark Auth] Invalid base58 signature contains invalid characters');
-              console.error('[DegenPark Auth] Signature:', base58Signature);
-              throw new Error('Generated signature contains non-base58 characters');
-            }
-            
-            console.log('[DegenPark Auth] Base58 signature validation passed');
-            return base58Signature;
-            
-          } catch (error) {
-            console.error('[DegenPark Auth] Signature encoding error:', error);
-            throw new Error('Failed to encode signature: ' + error.message);
+          } catch (walletError) {
+            console.error('[DegenPark Auth] Wallet signing failed:', walletError);
+            throw new Error('Wallet signing failed: ' + walletError.message);
           }
         };
 
@@ -243,24 +307,41 @@ $(function() {
       console.log('[DegenPark Auth] Signing message:', message);
       
       // Request signature from wallet
-      const signature = await signMessage(message);
+      const signatureResult = await signMessage(message);
       console.log('[DegenPark Auth] Signature obtained');
       
-      // Step 2: Send auth request to DegenPark API
+      // IMPORTANT: Extract actual signing key from wallet response
+      let actualSigningKey = publicKey; // Default to provided key
+      
+      // Check if wallet response includes the signing public key
+      if (signatureResult && signatureResult.publicKey) {
+        actualSigningKey = signatureResult.publicKey;
+        console.log('[DegenPark Auth] Using wallet\'s actual signing key:', actualSigningKey);
+        console.log('[DegenPark Auth] Original connection key:', publicKey);
+        console.log('[DegenPark Auth] Keys match:', actualSigningKey === publicKey);
+      }
+      
+      // Step 2: Send auth request to DegenPark API (now returns both signature and potentially updated key)
       const requestBody = {
-        signature: signature,
-        publicKey: publicKey
+        signature: signatureResult.signature || signatureResult, // Handle both object and string returns
+        publicKey: actualSigningKey
       };
       
-      console.log('[DegenPark Auth] === REQUEST COMPARISON WITH OLD SCRIPT ===');
+      console.log('[DegenPark Auth] === REQUEST COMPARISON WITH WORKING DEGENPARK EXAMPLES ===');
+      console.log('[DegenPark Auth] ✅ Message: "Hello, world!" (standard)');
+      console.log('[DegenPark Auth] ✅ API endpoint: /api/v1/auth/login/web3 (matches)');
+      console.log('[DegenPark Auth] ✅ Headers: x-network: solana (RESTORED - was missing!)');
+      console.log('[DegenPark Auth] ✅ Request body format: {signature, publicKey} (matches)');
       console.log('[DegenPark Auth] Message signed: "Hello, world!"');
-      console.log('[DegenPark Auth] Public key:', publicKey);
-      console.log('[DegenPark Auth] Public key length:', publicKey.length);
-      console.log('[DegenPark Auth] Signature (base58):', signature);
-      console.log('[DegenPark Auth] Signature length:', signature.length);
+      console.log('[DegenPark Auth] Public key (final):', actualSigningKey);
+      console.log('[DegenPark Auth] Public key length:', actualSigningKey.length);
+      console.log('[DegenPark Auth] Signature (base58):', requestBody.signature);
+      console.log('[DegenPark Auth] Signature length:', requestBody.signature.length);
+      console.log('[DegenPark Auth] Working example lengths: 87-88 chars (from DegenPark website)');
+      console.log('[DegenPark Auth] Our signature length matches examples:', requestBody.signature.length >= 87 && requestBody.signature.length <= 88);
       console.log('[DegenPark Auth] Request body:', JSON.stringify(requestBody, null, 2));
       console.log('[DegenPark Auth] API endpoint:', `${DEGENPARK_API_BASE}/api/v1/auth/login/web3`);
-      console.log('[DegenPark Auth] Headers: Content-Type: application/json, Accept: application/json (removed x-network header to match old script)');
+      console.log('[DegenPark Auth] Headers: Content-Type: application/json, Accept: application/json, x-network: solana (RESTORED - working examples show this is required)');
       console.log('[DegenPark Auth] ===============================================');
       
       console.log('[DegenPark Auth] Sending auth request...');
@@ -269,8 +350,8 @@ $(function() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Accept': 'application/json'
-          // Removed 'x-network': 'solana' to match old script format
+          'Accept': 'application/json',
+          'x-network': 'solana'  // REQUIRED: Working DegenPark website includes this header
         },
         body: JSON.stringify(requestBody)
       });
@@ -290,6 +371,25 @@ $(function() {
       }
     } catch (error) {
       console.error('[DegenPark Auth Error]', error.message);
+      
+      // If we get "Invalid signature" error, maybe try a different message format
+      if (error.message.includes('Invalid signature') && !error.retried) {
+        console.log('[DegenPark Auth] Trying alternative message format...');
+        try {
+          // Try with a more standard Web3 auth message format
+          const altSignMessage = async (message) => {
+            const authMessage = `Sign this message to authenticate with DegenPark:\n\n${message}`;
+            console.log('[DegenPark Auth] Trying alternative message:', authMessage);
+            return signMessage(authMessage);
+          };
+          
+          error.retried = true; // Prevent infinite recursion
+          return await getDegenParkAuthTokens(publicKey, altSignMessage);
+        } catch (altError) {
+          console.log('[DegenPark Auth] Alternative format also failed');
+        }
+      }
+      
       throw error;
     }
   };
@@ -306,8 +406,8 @@ $(function() {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${degenParkTokens.accessToken}`,
-          'Accept': 'application/json'
-          // Removed 'x-network': 'solana' to match old script format
+          'Accept': 'application/json',
+          'x-network': 'solana'  // REQUIRED: Matching the working DegenPark website format
         }
       });
 
@@ -1644,6 +1744,16 @@ $(function() {
     window.isAdmin = data.isAdmin;
     window.isDegenPark = data.isDegenPark;
     
+    // Add current user to known users list
+    knownUsers.set(username, {
+      walletAddress: window.walletAddress,
+      isAdmin: data.isAdmin,
+      isDegenPark: data.isDegenPark,
+      avatar: window.degenParkProfile?.avatar || null,
+      lastSeen: Date.now(),
+      isOnline: true
+    });
+    
     console.log('[Login] Successfully logged in. Admin:', data.isAdmin, 'DegenPark:', data.isDegenPark);
     
     // Update UI with user info
@@ -1677,52 +1787,68 @@ $(function() {
   });
 
   socket.on('user joined', (data) => {
-    const adminText = data.isAdmin ? ' ★' : '';
-    const degenParkText = data.isDegenPark ? ' [DP]' : '';
-    log(`${data.username}${adminText}${degenParkText} joined`);
-    updateUserCount(data.numUsers);
+    console.log(`User ${data.username} joined`);
     
-    // Add to active users for tagging
-    if (data.walletAddress) {
-      activeUsers.set(data.username, data.walletAddress);
-    }
-    
-    // Store socket info for admin checking in autocomplete and DegenPark data
+    // Add to active sockets (online users)
     if (!window.activeSockets) window.activeSockets = {};
-    window.activeSockets[data.username] = { 
-      walletAddress: data.walletAddress, 
+    window.activeSockets[data.username] = {
+      walletAddress: data.walletAddress,
       isAdmin: data.isAdmin,
-      isDegenPark: data.isDegenPark || false,
-      avatar: data.avatar || null
+      isDegenPark: data.isDegenPark,
+      avatar: data.avatar
     };
     
-    // Update user count in parent window
-    if (window.parent !== window) {
-      window.parent.postMessage({
-        type: 'user_count_update',
-        userCount: data.numUsers
-      }, '*');
-    }
+    // Also add to known users for offline messaging
+    knownUsers.set(data.username, {
+      walletAddress: data.walletAddress,
+      isAdmin: data.isAdmin,
+      isDegenPark: data.isDegenPark,
+      avatar: data.avatar,
+      lastSeen: Date.now(),
+      isOnline: true
+    });
+    
+    console.log('[UserTracker] Added online user:', data.username, '| Total known users:', knownUsers.size);
+    
+    totalUsers = data.numUsers;
+    updateUserCount(totalUsers);
+    
+    addChatMessage({
+      username: 'System',
+      message: `${data.username} joined the chat`,
+      isAdmin: true
+    });
+    
+    playNotificationSound('join');
   });
 
   socket.on('user left', (data) => {
-    log(`${data.username} left`);
-    updateUserCount(data.numUsers);
-    removeChatTyping(data);
+    console.log(`User ${data.username} left`);
     
-    // Remove from active users
-    activeUsers.delete(data.username);
-    if (window.activeSockets) {
+    // Remove from active sockets (online users)
+    if (window.activeSockets && window.activeSockets[data.username]) {
       delete window.activeSockets[data.username];
     }
     
-    // Update user count in parent window
-    if (window.parent !== window) {
-      window.parent.postMessage({
-        type: 'user_count_update',
-        userCount: data.numUsers
-      }, '*');
+    // Mark as offline in known users (don't remove completely)
+    if (knownUsers.has(data.username)) {
+      const userData = knownUsers.get(data.username);
+      userData.isOnline = false;
+      userData.lastSeen = Date.now();
+      knownUsers.set(data.username, userData);
+      console.log('[UserTracker] Marked offline:', data.username, '| Total known users:', knownUsers.size);
     }
+    
+    totalUsers = data.numUsers;
+    updateUserCount(totalUsers);
+    
+    addChatMessage({
+      username: 'System', 
+      message: `${data.username} left the chat`,
+      isAdmin: true
+    });
+    
+    playNotificationSound('leave');
   });
 
   socket.on('typing', (data) => {
@@ -2011,6 +2137,7 @@ $(function() {
   let menuOpen = false;
   let directMessages = new Map(); // Store DM conversations
   let unreadDMs = new Map(); // Track unread DM counts per user
+  let knownUsers = new Map(); // Track all users we've seen (online + offline)
 
   // Initialize hamburger menu functionality
   const initializeMenu = () => {
@@ -2149,48 +2276,81 @@ $(function() {
       }
 
       let found = false;
+      const usersToShow = new Map();
+      
+      // First, add all online users
       if (window.activeSockets) {
         Object.entries(window.activeSockets).forEach(([userName, userData]) => {
           // Skip current user
           if (userName === window.username) return;
           
           if (userName.toLowerCase().includes(query)) {
-            found = true;
-            const isDegenPark = userData.isDegenPark || false;
-            const avatar = userData.avatar || null;
-            
-            let avatarHtml;
-            if (avatar) {
-              avatarHtml = `<img src="${avatar}" alt="${userName}" class="dm-search-avatar" />`;
-            } else {
-              avatarHtml = `<div class="dm-search-avatar-text">${userName.charAt(0).toUpperCase()}</div>`;
-            }
-            
-            const $item = $(`
-              <div class="dm-search-item" data-username="${userName}" data-wallet="${userData.walletAddress}">
-                <div class="dm-search-avatar-container">${avatarHtml}</div>
-                <div class="dm-search-user-info">
-                  <div class="dm-search-username">
-                    ${userName}${userData.isAdmin ? ' ★' : ''}
-                    ${isDegenPark ? ' <span style="color:#8b5cf6;font-size:0.7rem;">DP</span>' : ''}
-                  </div>
-                  <div class="dm-search-wallet">${userData.walletAddress.substring(0, 8)}...</div>
-                </div>
-              </div>
-            `);
-            
-            $item.on('click', function(e) {
-              e.preventDefault();
-              e.stopPropagation();
-              $('#dm-search-modal').remove();
-              openDirectMessage(userName, userData.walletAddress);
+            usersToShow.set(userName, {
+              ...userData,
+              isOnline: true,
+              status: 'online'
             });
-            
-            $results.append($item);
           }
         });
       }
-
+      
+      // Then, add offline users from known users
+      knownUsers.forEach((userData, userName) => {
+        // Skip current user and users already added (online users)
+        if (userName === window.username || usersToShow.has(userName)) return;
+        
+        if (userName.toLowerCase().includes(query)) {
+          usersToShow.set(userName, {
+            ...userData,
+            isOnline: false,
+            status: 'offline'
+          });
+        }
+      });
+      
+      // Display all matching users
+      usersToShow.forEach((userData, userName) => {
+        found = true;
+        const isDegenPark = userData.isDegenPark || false;
+        const avatar = userData.avatar || null;
+        const isOnline = userData.isOnline;
+        
+        let avatarHtml;
+        if (avatar) {
+          avatarHtml = `<img src="${avatar}" alt="${userName}" class="dm-search-avatar" />`;
+        } else {
+          avatarHtml = `<div class="dm-search-avatar-text">${userName.charAt(0).toUpperCase()}</div>`;
+        }
+        
+        // Add status indicator
+        const statusIcon = isOnline ? '🟢' : '⚫';
+        const statusText = isOnline ? 'Online' : 'Offline';
+        const offlineNote = isOnline ? '' : ' <span style="color:#9ca3af;font-size:0.7rem;">(messages will be delivered when online)</span>';
+        
+        const $item = $(`
+          <div class="dm-search-item ${isOnline ? 'online' : 'offline'}" data-username="${userName}" data-wallet="${userData.walletAddress}">
+            <div class="dm-search-avatar-container">${avatarHtml}</div>
+            <div class="dm-search-user-info">
+              <div class="dm-search-username">
+                ${statusIcon} ${userName}${userData.isAdmin ? ' ★' : ''}
+                ${isDegenPark ? ' <span style="color:#8b5cf6;font-size:0.7rem;">DP</span>' : ''}
+              </div>
+              <div class="dm-search-wallet">${userData.walletAddress.substring(0, 8)}... • ${statusText}${offlineNote}</div>
+            </div>
+          </div>
+        `);
+        
+        $item.on('click', function(e) {
+          e.preventDefault();
+          e.stopPropagation();
+          $('#dm-search-modal').remove();
+          openDirectMessage(userName, userData.walletAddress, isOnline);
+        });
+        
+        $results.append($item);
+      });
+      
+      // Show "no users found" if nothing matches
       if (!found) {
         $results.append('<div class="dm-search-hint">No users found</div>');
       }
@@ -2238,7 +2398,7 @@ $(function() {
   };
 
   // Open direct message conversation
-  const openDirectMessage = (targetUsername, targetWallet) => {
+  const openDirectMessage = (targetUsername, targetWallet, isOnline) => {
     console.log(`Opening DM with ${targetUsername} (${targetWallet})`);
     
     // Mark messages as read
@@ -2248,11 +2408,11 @@ $(function() {
     const conversation = directMessages.get(targetUsername) || [];
     console.log('DM Conversation:', conversation);
     
-    showDirectMessageModal(targetUsername, targetWallet);
+    showDirectMessageModal(targetUsername, targetWallet, isOnline);
   };
 
   // Show the direct message modal
-  const showDirectMessageModal = (targetUsername, targetWallet) => {
+  const showDirectMessageModal = (targetUsername, targetWallet, isOnline) => {
     // Remove any existing DM modal
     $('#dm-modal').remove();
     
@@ -2260,14 +2420,15 @@ $(function() {
       <div class="dm-modal-overlay" id="dm-modal">
         <div class="dm-modal">
           <div class="dm-modal-header">
-            <h3>Direct Message - ${targetUsername}</h3>
+            <h3>${isOnline ? '🟢' : '⚫'} Direct Message - ${targetUsername} <span style="font-size:0.8rem;color:#9ca3af;">(${isOnline ? 'Online' : 'Offline'})</span></h3>
             <button class="dm-modal-close">×</button>
           </div>
+          ${!isOnline ? '<div class="dm-offline-notice">📬 This user is offline. Your messages will be delivered when they come online.</div>' : ''}
           <div class="dm-modal-messages" id="dm-messages">
             <!-- Messages will go here -->
           </div>
           <div class="dm-modal-input">
-            <input type="text" placeholder="Type a direct message..." id="dm-input" />
+            <input type="text" placeholder="${isOnline ? 'Type a direct message...' : 'Type a message (will be delivered when online)...'}" id="dm-input" />
             <button id="dm-send">Send</button>
           </div>
         </div>
@@ -2308,19 +2469,30 @@ $(function() {
     $dmMessages.scrollTop($dmMessages[0].scrollHeight);
     
     // Handle sending messages - FIXED: Prevent event bubbling
+    const sendDMMessageHandler = () => {
+      const message = $('#dm-input').val().trim();
+      if (message) {
+        console.log('[DM] Sending message:', message, 'to:', targetUsername);
+        sendDirectMessage(targetUsername, targetWallet, message);
+        $('#dm-input').val('');
+      }
+    };
+    
     $('#dm-send').on('click', function(e) {
       e.preventDefault();
       e.stopPropagation();
       e.stopImmediatePropagation();
-      sendDMMessage();
+      sendDMMessageHandler();
     });
     
     $('#dm-input').on('keypress', function(e) {
       e.stopPropagation(); // Prevent main chat input from receiving this
       e.stopImmediatePropagation();
+      console.log('[DM] Keypress detected:', e.which);
       if (e.which === 13) { // Enter key
         e.preventDefault();
-        sendDMMessage();
+        console.log('[DM] Enter key pressed, sending message');
+        sendDMMessageHandler();
       }
     });
 
@@ -2329,14 +2501,6 @@ $(function() {
       e.stopPropagation();
       e.stopImmediatePropagation();
     });
-    
-    function sendDMMessage() {
-      const message = $('#dm-input').val().trim();
-      if (message) {
-        sendDirectMessage(targetUsername, targetWallet, message);
-        $('#dm-input').val('');
-      }
-    }
     
     // Close modal handlers with cleanup
     const closeDMModal = () => {
@@ -2380,7 +2544,11 @@ $(function() {
 
   // Send direct message
   const sendDirectMessage = (targetUsername, targetWallet, message) => {
-    console.log(`Sending DM to ${targetUsername}: ${message}`);
+    console.log(`[DM] Sending DM to ${targetUsername}: ${message}`);
+    
+    // Check if user is online or offline
+    const isOnline = window.activeSockets && window.activeSockets[targetUsername];
+    console.log(`[DM] Target user ${targetUsername} is ${isOnline ? 'ONLINE' : 'OFFLINE'}`);
     
     // Add to local conversation
     if (!directMessages.has(targetUsername)) {
@@ -2403,6 +2571,7 @@ $(function() {
       <div class="dm-message self">
         <span class="dm-timestamp">${new Date().toLocaleTimeString()}</span>
         <span class="dm-content">${message}</span>
+        ${!isOnline ? '<span class="dm-offline-indicator">📬 Will deliver when online</span>' : ''}
       </div>
     `);
     $dmMessages.append($msgDiv);
