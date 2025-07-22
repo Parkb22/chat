@@ -187,51 +187,47 @@ io.on('connection', (socket) => {
       return;
     }
 
-    // Check if socket has valid temporary authentication
-    if (!socket.tempAuth || !socket.tempAuth.verified || socket.tempAuth.walletAddress !== walletAddress) {
-      socket.emit('error', 'Authentication required - please reconnect wallet');
-      return;
-    }
-
     // Check if this socket is already authenticated
     if (activeSockets.has(socket.id)) {
       console.log('Socket already authenticated:', socket.id);
       return;
     }
 
-    // Check if wallet already has a different username
-    if (walletUserMap.has(walletAddress) && walletUserMap.get(walletAddress) !== username) {
+    // Check if wallet already has a different username (unless it's a DegenPark user)
+    const isDegenParkUser = !!(userData.degenParkProfile || userData.isDegenPark);
+    
+    if (walletUserMap.has(walletAddress) && walletUserMap.get(walletAddress) !== username && !isDegenParkUser) {
       // Wallet already has a username, use the existing one
       const existingUsername = walletUserMap.get(walletAddress);
       socket.username = existingUsername;
       socket.walletAddress = walletAddress;
     } else {
-      // New wallet or same username, store/update the mapping
+      // New wallet or same username or DegenPark user, store/update the mapping
       walletUserMap.set(walletAddress, username);
       socket.username = username;
       socket.walletAddress = walletAddress;
     }
 
-    // Store socket info with DegenPark data
+    // Store socket info with DegenPark profile data
     activeSockets.set(socket.id, {
       username: socket.username,
       walletAddress: socket.walletAddress,
       isAdmin: isAdmin(socket.walletAddress),
-      isDegenPark: !!userData.degenParkUser,
-      avatar: userData.degenParkUser?.avatar || null,
-      degenParkId: userData.degenParkUser?.id || null
+      isDegenPark: isDegenParkUser,
+      avatar: userData.degenParkProfile?.avatar || null,
+      degenParkProfile: userData.degenParkProfile || null,
+      degenParkTokens: userData.degenParkTokens || null // Store tokens securely on server
     });
-
-    // Clear temporary authentication data
-    delete socket.tempAuth;
 
     ++numUsers;
     
-    console.log(`User ${socket.username} (${socket.walletAddress}) joined. Total users: ${numUsers}${isAdmin(socket.walletAddress) ? ' [ADMIN]' : ''}`);
+    console.log(`User ${socket.username} (${socket.walletAddress}) joined. Total users: ${numUsers}${isAdmin(socket.walletAddress) ? ' [ADMIN]' : ''}${isDegenParkUser ? ' [DEGENPARK]' : ''}`);
 
     socket.emit('login', {
       numUsers: numUsers,
-      isAdmin: isAdmin(socket.walletAddress)
+      isAdmin: isAdmin(socket.walletAddress),
+      isDegenPark: isDegenParkUser,
+      degenParkProfile: userData.degenParkProfile
     });
 
     // Send undelivered direct messages
@@ -257,8 +253,8 @@ io.on('connection', (socket) => {
       numUsers: numUsers,
       walletAddress: socket.walletAddress,
       isAdmin: isAdmin(socket.walletAddress),
-      isDegenPark: !!userData.degenParkUser,
-      avatar: userData.degenParkUser?.avatar || null
+      isDegenPark: isDegenParkUser,
+      avatar: userData.degenParkProfile?.avatar || null
     });
   });
 
