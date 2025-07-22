@@ -114,6 +114,26 @@ $(function() {
             console.log('[DegenPark Auth] Length matches standard:', signedMessage.signature.length === 64);
             console.log('[DegenPark Auth] bs58 available:', !!window.bs58);
             
+            // WALLET RESPONSE ANALYSIS
+            console.log('[DegenPark Auth] === DETAILED WALLET RESPONSE ANALYSIS ===');
+            console.log('[DegenPark Auth] signedMessage object keys:', Object.keys(signedMessage));
+            console.log('[DegenPark Auth] signedMessage.signature constructor:', signedMessage.signature.constructor.name);
+            console.log('[DegenPark Auth] Is signature a Uint8Array?', signedMessage.signature instanceof Uint8Array);
+            console.log('[DegenPark Auth] Is signature an Array?', Array.isArray(signedMessage.signature));
+            
+            // Check if there are other properties
+            if (signedMessage.publicKey) {
+              console.log('[DegenPark Auth] Wallet provided publicKey:', signedMessage.publicKey.toString());
+            }
+            if (signedMessage.message) {
+              console.log('[DegenPark Auth] Wallet echoed message:', signedMessage.message);
+            }
+            
+            // Analyze signature bytes in detail
+            console.log('[DegenPark Auth] Signature bytes (hex):', Array.from(signedMessage.signature, byte => byte.toString(16).padStart(2, '0')).join(''));
+            
+            console.log('[DegenPark Auth] ====================================================');
+            
             // DIAGNOSTIC: Check if wallet might be using a different message format
             console.log('[DegenPark Auth] === SIGNATURE DIAGNOSTIC ===');
             console.log('[DegenPark Auth] Raw signature bytes (first 10):', Array.from(signedMessage.signature.slice(0, 10)));
@@ -204,6 +224,51 @@ $(function() {
                   
                 } else {
                   console.warn('[DegenPark Auth] Solana web3.js ed25519 not available for local verification');
+                }
+                
+                console.log('[DegenPark Auth] === COMPARISON WITH WORKING NACL CODE ===');
+                console.log('[DegenPark Auth] Working code uses: nacl.sign.detached(messageBytes, keyPair.secretKey)');
+                console.log('[DegenPark Auth] Our code uses: window.solana.signMessage(encodedMessage)');
+                console.log('[DegenPark Auth] Message bytes (ours):', Array.from(encodedMessage));
+                console.log('[DegenPark Auth] Expected message: "Hello, world!"');
+                console.log('[DegenPark Auth] Message matches:', message === "Hello, world!");
+                console.log('[DegenPark Auth] Signature length (ours):', signature.length);
+                console.log('[DegenPark Auth] Expected signature length: 64 bytes');
+                console.log('[DegenPark Auth] Signature bytes (first 8):', Array.from(signature.slice(0, 8)));
+                console.log('[DegenPark Auth] Signature bytes (last 8):', Array.from(signature.slice(-8)));
+                
+                // Try to detect if wallet is adding message prefix
+                const rawMessage = "Hello, world!";
+                const rawBytes = new TextEncoder().encode(rawMessage);
+                console.log('[DegenPark Auth] Raw message bytes should be:', Array.from(rawBytes));
+                console.log('[DegenPark Auth] Our encoded bytes are:', Array.from(encodedMessage));
+                console.log('[DegenPark Auth] Bytes match exactly:', JSON.stringify(Array.from(rawBytes)) === JSON.stringify(Array.from(encodedMessage)));
+                
+                // TEST: If we had nacl available, what would a proper signature look like?
+                if (window.nacl && window.nacl.sign) {
+                  console.log('[DegenPark Auth] === NACL SIGNATURE ANALYSIS ===');
+                  try {
+                    // We can't sign because we don't have the private key, but we can analyze
+                    console.log('[DegenPark Auth] nacl.sign available:', true);
+                    console.log('[DegenPark Auth] Expected signature length from nacl.sign.detached:', 64);
+                    console.log('[DegenPark Auth] Our wallet signature length:', signature.length);
+                    console.log('[DegenPark Auth] Length matches nacl expectation:', signature.length === 64);
+                    
+                    // Check if signature looks like a valid Ed25519 signature
+                    const isValidLength = signature.length === 64;
+                    const hasValidBytes = signature.every(byte => byte >= 0 && byte <= 255);
+                    console.log('[DegenPark Auth] Signature has valid Ed25519 format:', isValidLength && hasValidBytes);
+                    
+                    // Compare with working signature examples
+                    console.log('[DegenPark Auth] Working example signature lengths: 87-88 base58 chars');
+                    console.log('[DegenPark Auth] Our base58 signature length:', base58Signature.length);
+                    console.log('[DegenPark Auth] Length matches working examples:', base58Signature.length >= 87 && base58Signature.length <= 88);
+                    
+                  } catch (naclError) {
+                    console.warn('[DegenPark Auth] nacl analysis failed:', naclError);
+                  }
+                } else {
+                  console.warn('[DegenPark Auth] nacl library not available for signature analysis');
                 }
                 
                 console.log('[DegenPark Auth] =======================================');
@@ -332,19 +397,34 @@ $(function() {
       console.log('[DegenPark Auth] ✅ API endpoint: /api/v1/auth/login/web3 (matches)');
       console.log('[DegenPark Auth] ✅ Headers: x-network: solana (RESTORED - was missing!)');
       console.log('[DegenPark Auth] ✅ Request body format: {signature, publicKey} (matches)');
-      console.log('[DegenPark Auth] Message signed: "Hello, world!"');
-      console.log('[DegenPark Auth] Public key (final):', actualSigningKey);
-      console.log('[DegenPark Auth] Public key length:', actualSigningKey.length);
-      console.log('[DegenPark Auth] Signature (base58):', requestBody.signature);
-      console.log('[DegenPark Auth] Signature length:', requestBody.signature.length);
-      console.log('[DegenPark Auth] Working example lengths: 87-88 chars (from DegenPark website)');
-      console.log('[DegenPark Auth] Our signature length matches examples:', requestBody.signature.length >= 87 && requestBody.signature.length <= 88);
-      console.log('[DegenPark Auth] Request body:', JSON.stringify(requestBody, null, 2));
-      console.log('[DegenPark Auth] API endpoint:', `${DEGENPARK_API_BASE}/api/v1/auth/login/web3`);
-      console.log('[DegenPark Auth] Headers: Content-Type: application/json, Accept: application/json, x-network: solana (RESTORED - working examples show this is required)');
-      console.log('[DegenPark Auth] ===============================================');
       
-      console.log('[DegenPark Auth] Sending auth request...');
+      console.log('[DegenPark Auth] === FINAL COMPARISON ===');
+      console.log('[DegenPark Auth] Working example 1: {"signature":"Fo5Prm7PEx8mpQfPoxfRhXULqziZ675VZjPtEZahi7RYpSHGwxvJfnwk4MjyDDdcSNPWsCtSLZQJ3AWTzR26qAj","publicKey":"3CnbCgThb6faA7CGWCPQyRd7S1wfnYnrNUWzBZBkobvC"}');
+      console.log('[DegenPark Auth] Working example 2: {"signature":"3YoheiG3ViaUtroRbFyA5t96xbprbXUPvGvFXbrZbcyGzKxeeHv2HRktehhtD3RYKKvdvCmbZoKwrpPPEw9Vs6DH","publicKey":"EssGUXS3SdjYq2wmAUcCo5AJVd2ZmGcCJG3QUWzBZBkobvC"}');
+      console.log('[DegenPark Auth] Our request body:', JSON.stringify(requestBody));
+      console.log('[DegenPark Auth] === KEY DIFFERENCES ANALYSIS ===');
+      console.log('[DegenPark Auth] Our public key length:', actualSigningKey.length);
+      console.log('[DegenPark Auth] Working example lengths: 44 chars (base58 pubkey)');
+      console.log('[DegenPark Auth] Public key format matches:', actualSigningKey.length === 44);
+      console.log('[DegenPark Auth] Our signature length:', requestBody.signature.length);
+      console.log('[DegenPark Auth] Working signature lengths: 87-88 chars');
+      console.log('[DegenPark Auth] Signature length matches:', requestBody.signature.length >= 87 && requestBody.signature.length <= 88);
+      
+      console.log('[DegenPark Auth] Message signed: "Hello, world!"');
+      
+      // Step 3: Send auth request to DegenPark API
+      console.log('[DegenPark Auth] === SENDING REQUEST ===');
+      console.log('[DegenPark Auth] URL:', `${DEGENPARK_API_BASE}/api/v1/auth/login/web3`);
+      console.log('[DegenPark Auth] Method: POST');
+      console.log('[DegenPark Auth] Headers:', {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'x-network': 'solana'
+      });
+      console.log('[DegenPark Auth] Body (string):', JSON.stringify(requestBody));
+      console.log('[DegenPark Auth] Body (pretty):', JSON.stringify(requestBody, null, 2));
+      console.log('[DegenPark Auth] Body length:', JSON.stringify(requestBody).length);
+      console.log('[DegenPark Auth] ============================');
       
       const response = await fetch(`${DEGENPARK_API_BASE}/api/v1/auth/login/web3`, {
         method: 'POST',
@@ -372,21 +452,47 @@ $(function() {
     } catch (error) {
       console.error('[DegenPark Auth Error]', error.message);
       
-      // If we get "Invalid signature" error, maybe try a different message format
+      // If we get "Invalid signature" error, try alternative approaches
       if (error.message.includes('Invalid signature') && !error.retried) {
-        console.log('[DegenPark Auth] Trying alternative message format...');
+        console.log('[DegenPark Auth] === TESTING ALTERNATIVE SIGNATURE APPROACHES ===');
+        
         try {
-          // Try with a more standard Web3 auth message format
-          const altSignMessage = async (message) => {
-            const authMessage = `Sign this message to authenticate with DegenPark:\n\n${message}`;
-            console.log('[DegenPark Auth] Trying alternative message:', authMessage);
-            return signMessage(authMessage);
+          error.retried = true; // Prevent infinite recursion
+          
+          // Test 1: Try with common Solana wallet message prefix
+          console.log('[DegenPark Auth] Test 1: Trying with Solana message prefix');
+          const altSignMessage1 = async (message) => {
+            // Some wallets add this prefix before signing
+            const prefixedMessage = `Solana Signed Message:\n${message}`;
+            console.log('[DegenPark Auth] Trying prefixed message:', prefixedMessage);
+            return signMessage(prefixedMessage);
           };
           
-          error.retried = true; // Prevent infinite recursion
-          return await getDegenParkAuthTokens(publicKey, altSignMessage);
-        } catch (altError) {
-          console.log('[DegenPark Auth] Alternative format also failed');
+          const result1 = await getDegenParkAuthTokens(publicKey, altSignMessage1);
+          console.log('[DegenPark Auth] SUCCESS with Solana prefix!');
+          return result1;
+          
+        } catch (prefixError) {
+          console.log('[DegenPark Auth] Prefix approach failed:', prefixError.message);
+          
+          try {
+            // Test 2: Try with raw message bytes (no UTF-8 encoding)
+            console.log('[DegenPark Auth] Test 2: Trying different encoding approach');
+            const altSignMessage2 = async (message) => {
+              // Try signing raw buffer instead of text-encoded
+              const messageBuffer = Buffer.from(message, 'utf8');
+              console.log('[DegenPark Auth] Trying buffer approach:', Array.from(messageBuffer));
+              return await window.solana.signMessage(messageBuffer);
+            };
+            
+            // This approach is problematic because we already encode in signMessage
+            // Let me modify this differently
+            
+            console.log('[DegenPark Auth] Buffer approach - will need wallet adjustment');
+            
+          } catch (bufferError) {
+            console.log('[DegenPark Auth] Buffer approach failed:', bufferError.message);
+          }
         }
       }
       
@@ -2596,6 +2702,7 @@ $(document).ready(function() {
   console.log('[Init] Chat widget loaded');
   console.log('[Init] jQuery version:', $.fn.jquery);
   console.log('[Init] bs58 library available:', !!window.bs58);
+  console.log('[Init] nacl library available:', !!window.nacl);
   console.log('[Init] Solana wallet API available:', !!window.solana);
   console.log('[Init] Socket.IO available:', !!window.io);
   
@@ -2607,6 +2714,16 @@ $(document).ready(function() {
       console.log('[Init] bs58 test successful:', testResult);
     } catch (error) {
       console.error('[Init] bs58 test failed:', error);
+    }
+  }
+  
+  // Test nacl if available
+  if (window.nacl) {
+    try {
+      console.log('[Init] nacl.sign available:', !!window.nacl.sign);
+      console.log('[Init] nacl.sign.detached available:', !!window.nacl.sign.detached);
+    } catch (error) {
+      console.error('[Init] nacl test failed:', error);
     }
   }
   
