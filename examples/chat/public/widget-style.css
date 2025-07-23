@@ -90,19 +90,30 @@ ul {
 
 .page {
   height: 100vh;
-  position: absolute;
+  position: relative;
   width: 100%;
   display: none;
   top: 0;
   left: 0;
 }
 
-/* Wallet Connection Page - Modern Design */
+/* Wallet Connection Page - Ultra Sleek Web3 Design */
 .wallet.page {
-  background: linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #1e293b 100%);
+  background: 
+    linear-gradient(135deg, #0c0a2e 0%, #1a1347 25%, #2d1b69 50%, #1e293b 75%, #0f172a 100%);
   display: none;
   position: relative;
   overflow: hidden;
+  animation: backgroundShift 8s ease-in-out infinite alternate;
+}
+
+@keyframes backgroundShift {
+  0% { 
+    background: linear-gradient(135deg, #0c0a2e 0%, #1a1347 25%, #2d1b69 50%, #1e293b 75%, #0f172a 100%);
+  }
+  100% { 
+    background: linear-gradient(135deg, #1e1b4b 0%, #312e81 25%, #4c1d95 50%, #374151 75%, #1f2937 100%);
+  }
 }
 
 .wallet.page::before {
@@ -113,9 +124,34 @@ ul {
   right: 0;
   bottom: 0;
   background: 
-    radial-gradient(circle at 20% 20%, rgba(99, 102, 241, 0.1) 0%, transparent 50%),
-    radial-gradient(circle at 80% 80%, rgba(139, 92, 246, 0.1) 0%, transparent 50%);
+    radial-gradient(circle at 15% 25%, rgba(99, 102, 241, 0.15) 0%, transparent 40%),
+    radial-gradient(circle at 85% 75%, rgba(139, 92, 246, 0.12) 0%, transparent 45%),
+    radial-gradient(circle at 50% 10%, rgba(16, 185, 129, 0.08) 0%, transparent 35%),
+    radial-gradient(circle at 30% 90%, rgba(245, 101, 101, 0.06) 0%, transparent 30%);
   pointer-events: none;
+  animation: float 6s ease-in-out infinite;
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0px) rotate(0deg); }
+  50% { transform: translateY(-10px) rotate(1deg); }
+}
+
+.wallet.page::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: url('data:image/svg+xml,<svg width="60" height="60" viewBox="0 0 60 60" xmlns="http://www.w3.org/2000/svg"><g fill="none" fill-rule="evenodd"><g fill="%23ffffff" fill-opacity="0.02"><circle cx="30" cy="30" r="1"/></g></svg>');
+  pointer-events: none;
+  animation: particles 20s linear infinite;
+}
+
+@keyframes particles {
+  0% { transform: translateX(0) translateY(0); }
+  100% { transform: translateX(-60px) translateY(-60px); }
 }
 
 .wallet.page.active {
@@ -128,63 +164,128 @@ ul {
   left: 50%;
   transform: translate(-50%, -50%);
   text-align: center;
-  width: 90%;
-  max-width: 320px;
-  padding: 32px 24px;
-  background: rgba(255, 255, 255, 0.05);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border-radius: 16px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  box-shadow: 0 25px 50px rgba(0, 0, 0, 0.3);
+  width: 92%;
+  max-width: 350px;
+  padding: 40px 28px;
+  background: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  border-radius: 24px;
+  border: 2px solid;
+  border-image: linear-gradient(135deg, 
+    rgba(99, 102, 241, 0.3) 0%, 
+    rgba(139, 92, 246, 0.2) 25%, 
+    rgba(16, 185, 129, 0.15) 50%, 
+    rgba(139, 92, 246, 0.2) 75%, 
+    rgba(99, 102, 241, 0.3) 100%) 1;
+  box-shadow: 
+    0 32px 64px rgba(0, 0, 0, 0.4),
+    0 16px 32px rgba(99, 102, 241, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
   z-index: 1;
+  animation: formGlow 4s ease-in-out infinite alternate;
+}
+
+@keyframes formGlow {
+  0% { 
+    box-shadow: 
+      0 32px 64px rgba(0, 0, 0, 0.4),
+      0 16px 32px rgba(99, 102, 241, 0.1),
+      inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  }
+  100% { 
+    box-shadow: 
+      0 32px 64px rgba(0, 0, 0, 0.4),
+      0 16px 32px rgba(139, 92, 246, 0.15),
+      inset 0 1px 0 rgba(255, 255, 255, 0.15);
+  }
 }
 
 .wallet.page .title {
-  font-size: 1.4rem;
-  color: #fff;
-  font-weight: 700;
-  margin-bottom: 8px;
-  background: linear-gradient(135deg, #f8fafc, #e2e8f0);
+  font-size: 1.75rem;
+  font-weight: 800;
+  margin-bottom: 12px;
+  background: linear-gradient(135deg, 
+    #ffffff 0%, 
+    #e0e7ff 25%, 
+    #c7d2fe 50%, 
+    #a5b4fc 75%, 
+    #8b5cf6 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
+  letter-spacing: -0.02em;
+  text-shadow: 0 0 30px rgba(139, 92, 246, 0.3);
+  animation: titleShimmer 3s ease-in-out infinite alternate;
+}
+
+@keyframes titleShimmer {
+  0% { 
+    background: linear-gradient(135deg, 
+      #ffffff 0%, 
+      #e0e7ff 25%, 
+      #c7d2fe 50%, 
+      #a5b4fc 75%, 
+      #8b5cf6 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+  }
+  100% { 
+    background: linear-gradient(135deg, 
+      #8b5cf6 0%, 
+      #a5b4fc 25%, 
+      #c7d2fe 50%, 
+      #e0e7ff 75%, 
+      #ffffff 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+  }
 }
 
 .wallet.page .subtitle {
-  font-size: 0.9rem;
-  color: rgba(248, 250, 252, 0.7);
-  font-weight: 400;
-  margin-bottom: 24px;
-  line-height: 1.5;
+  font-size: 1rem;
+  color: rgba(248, 250, 252, 0.8);
+  font-weight: 500;
+  margin-bottom: 32px;
+  line-height: 1.6;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  opacity: 0.9;
 }
 
 .walletButtons {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 12px;
-  margin-bottom: 20px;
+  gap: 16px;
+  margin-bottom: 24px;
 }
 
 .connectWallet {
-  background: linear-gradient(135deg, rgba(99, 102, 241, 0.2), rgba(139, 92, 246, 0.2));
-  border: 1px solid rgba(99, 102, 241, 0.3);
-  border-radius: 12px;
-  color: #f8fafc;
+  background: linear-gradient(135deg, 
+    rgba(99, 102, 241, 0.25) 0%, 
+    rgba(139, 92, 246, 0.2) 50%, 
+    rgba(99, 102, 241, 0.25) 100%);
+  border: 2px solid transparent;
+  background-clip: padding-box;
+  border-radius: 16px;
+  color: #ffffff;
   cursor: pointer;
   display: flex;
   align-items: center;
-  gap: 12px;
-  font-size: 0.95rem;
-  font-weight: 600;
-  padding: 16px 20px;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  gap: 14px;
+  font-size: 1rem;
+  font-weight: 700;
+  padding: 18px 24px;
+  transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
   width: 100%;
-  max-width: 260px;
+  max-width: 280px;
   justify-content: center;
   position: relative;
   overflow: hidden;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+  box-shadow: 
+    0 8px 32px rgba(99, 102, 241, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
 }
 
 .connectWallet::before {
@@ -194,48 +295,106 @@ ul {
   left: -100%;
   width: 100%;
   height: 100%;
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
-  transition: left 0.5s;
+  background: linear-gradient(90deg, 
+    transparent, 
+    rgba(255, 255, 255, 0.2), 
+    rgba(139, 92, 246, 0.3), 
+    rgba(255, 255, 255, 0.2), 
+    transparent);
+  transition: left 0.6s ease-out;
+}
+
+.connectWallet::after {
+  content: '';
+  position: absolute;
+  top: -2px;
+  left: -2px;
+  right: -2px;
+  bottom: -2px;
+  background: linear-gradient(135deg, 
+    rgba(99, 102, 241, 0.4), 
+    rgba(139, 92, 246, 0.3), 
+    rgba(16, 185, 129, 0.2), 
+    rgba(139, 92, 246, 0.3), 
+    rgba(99, 102, 241, 0.4));
+  border-radius: 18px;
+  opacity: 0;
+  z-index: -1;
+  transition: opacity 0.4s ease-out;
 }
 
 .connectWallet:hover::before {
   left: 100%;
 }
 
+.connectWallet:hover::after {
+  opacity: 1;
+}
+
 .connectWallet:hover {
-  background: linear-gradient(135deg, rgba(99, 102, 241, 0.3), rgba(139, 92, 246, 0.3));
-  border-color: rgba(99, 102, 241, 0.5);
-  transform: translateY(-2px);
-  box-shadow: 0 10px 25px rgba(99, 102, 241, 0.2);
+  background: linear-gradient(135deg, 
+    rgba(99, 102, 241, 0.35) 0%, 
+    rgba(139, 92, 246, 0.3) 50%, 
+    rgba(99, 102, 241, 0.35) 100%);
+  transform: translateY(-3px) scale(1.02);
+  box-shadow: 
+    0 16px 48px rgba(99, 102, 241, 0.3),
+    0 8px 24px rgba(139, 92, 246, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
 }
 
 .connectWallet:active {
-  transform: translateY(0);
-  box-shadow: 0 5px 15px rgba(99, 102, 241, 0.15);
+  transform: translateY(-1px) scale(1.01);
+  box-shadow: 
+    0 8px 32px rgba(99, 102, 241, 0.25),
+    0 4px 16px rgba(139, 92, 246, 0.15),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15);
 }
 
 .connectWallet:focus {
   outline: none;
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
+  box-shadow: 
+    0 8px 32px rgba(99, 102, 241, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    0 0 0 4px rgba(99, 102, 241, 0.3);
 }
 
 .connectWallet img {
-  width: 20px;
-  height: 20px;
-  border-radius: 4px;
+  width: 24px;
+  height: 24px;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  transition: all 0.3s ease;
+}
+
+.connectWallet:hover img {
+  transform: scale(1.1) rotate(3deg);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
 }
 
 .connectWallet span {
-  font-size: 15px;
+  font-size: 18px;
   letter-spacing: 0.5px;
+  transition: all 0.3s ease;
+}
+
+.connectWallet:hover span {
+  transform: scale(1.05);
 }
 
 .walletStatus {
-  color: rgba(248, 250, 252, 0.8);
-  font-size: 0.75rem;
-  min-height: 16px;
-  font-weight: 500;
+  color: rgba(248, 250, 252, 0.85);
+  font-size: 0.85rem;
+  min-height: 20px;
+  font-weight: 600;
   text-align: center;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+  animation: statusPulse 2s ease-in-out infinite;
+}
+
+@keyframes statusPulse {
+  0%, 100% { opacity: 0.85; }
+  50% { opacity: 1; }
 }
 
 /* Username Selection Page - Modern Design */
@@ -563,6 +722,9 @@ ul {
   display: flex;
   align-items: center;
   gap: 8px;
+  height: 35px;
+  padding: 0 8px;
+  margin: 5px 0;
 }
 
 .input-container .inputMessage {
@@ -574,6 +736,10 @@ ul {
   color: #72767d;
   white-space: nowrap;
   flex-shrink: 0;
+  height: 35px;
+  display: flex;
+  align-items: center;
+  padding-right: 4px;
 }
 
 .character-counter .char-count {
@@ -588,9 +754,9 @@ ul {
   color: #ed4245;
 }
 
-/* Settings Modal */
+/* Settings Modal - Widget Constrained */
 .modal-overlay {
-  position: fixed;
+  position: absolute;
   top: 0;
   left: 0;
   width: 100%;
@@ -604,13 +770,14 @@ ul {
 
 .modal-content {
   background: #1e293b;
-  border-radius: 12px;
+  border-radius: 8px;
   border: 1px solid rgba(255, 255, 255, 0.1);
-  width: 90%;
-  max-width: 400px;
-  max-height: 80vh;
+  width: 95%;
+  max-width: 380px;
+  max-height: 450px;
   overflow-y: auto;
   box-shadow: 0 25px 50px rgba(0, 0, 0, 0.5);
+  margin: 10px;
 }
 
 .modal-header {
@@ -849,12 +1016,13 @@ ul {
 }
 
 .userControls {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-shrink: 0;
-  margin-left: auto;
-  padding: 4px 8px;
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  flex-shrink: 0 !important;
+  margin-left: auto !important;
+  padding: 4px 8px !important;
+  min-height: 36px !important;
 }
 
 /* Status indicators and buttons in userControls */
@@ -900,6 +1068,58 @@ ul {
 .userControls .connection-text {
   font-size: 0.7rem;
   color: #9ca3af;
+}
+
+/* Direct Messages Icon Button */
+.dm-icon-button {
+  position: relative !important;
+  background: rgba(99, 102, 241, 0.15) !important;
+  border: 1px solid rgba(99, 102, 241, 0.3) !important;
+  border-radius: 8px !important;
+  color: #f1f5f9 !important;
+  cursor: pointer !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 32px !important;
+  height: 32px !important;
+  font-size: 16px !important;
+  transition: all 0.2s ease !important;
+  flex-shrink: 0 !important;
+  margin: 0 !important;
+}
+
+.dm-icon-button:hover {
+  background: rgba(99, 102, 241, 0.25) !important;
+  border-color: rgba(99, 102, 241, 0.4) !important;
+  transform: translateY(-1px) !important;
+}
+
+.dm-icon-button:active {
+  transform: translateY(0) !important;
+}
+
+/* DM Notification Badge */
+.dm-notification-badge {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  background: #ef4444;
+  color: white;
+  border-radius: 50%;
+  width: 18px;
+  height: 18px;
+  font-size: 10px;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid #1e293b;
+  min-width: 18px;
+}
+
+.dm-notification-badge.hidden {
+  display: none;
 }
 
   .userInfo .walletAddress {
@@ -1375,8 +1595,11 @@ ul {
     background: #374151;
     border-top: 1px solid #4b5563;
     z-index: 100;
-    height: 50px; /* Fixed height */
+    height: 45px; /* Consistent height */
     flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
   }
 
 .reply-preview {
@@ -1418,12 +1641,12 @@ ul {
 
 /* Simplified input field */
 .inputMessage {
-  border: 1px solid #4b5563 !important;
-  height: 50px !important;
+  border: none !important;
+  height: 35px !important;
   outline: none;
   padding: 0 12px !important;
   width: 100% !important;
-  font-size: 1rem !important;
+  font-size: 0.9rem !important;
   background: #374151 !important;
   color: #f1f5f9 !important;
   position: static !important;
@@ -1434,17 +1657,28 @@ ul {
   display: block !important;
   margin: 0 !important;
   border-radius: 0 !important;
-  transition: border-color 0.2s ease !important;
+  transition: background-color 0.2s ease !important;
 }
 
 .inputMessage:focus {
-  border-color: #6366f1 !important;
-  background: #374151 !important;
+  background: #4b5563 !important;
 }
 
 .inputMessage::placeholder {
   color: #d1d5db;
   font-size: 0.9rem;
+}
+
+/* Slowmode cooldown styling */
+.inputMessage:disabled {
+  background: #2d3748 !important;
+  cursor: not-allowed !important;
+  opacity: 0.7;
+}
+
+.inputMessage:disabled::placeholder {
+  color: #fbbf24 !important;
+  font-weight: 500;
 }
 
 /* Message reactions */
@@ -1503,40 +1737,7 @@ ul {
 .status-delivered { color: #3b82f6; }
 .status-read { color: #8b5cf6; }
 
-/* Connection state indicator - moved to userInfo bar */
-.connection-status {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 0.65rem;
-  color: #9ca3af;
-  height: 22px;
-  flex-shrink: 0;
-}
-
-.connection-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  transition: all 0.3s ease;
-}
-
-.connection-dot.connected { 
-  background: #10b981; 
-  box-shadow: 0 0 6px rgba(16,185,129,0.4);
-}
-.connection-dot.connecting { 
-  background: #fbbf24; 
-  animation: pulse 2s infinite;
-}
-.connection-dot.disconnected { 
-  background: #ef4444; 
-}
-
-@keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.5; }
-}
+/* Connection status removed per user request - no longer needed */
 
 /* User count indicator */
 .user-count {
@@ -1614,6 +1815,40 @@ ul {
   margin: 2px 0;
   text-align: center;
   line-height: 1.2;
+  padding: 4px 8px;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.1);
+}
+
+/* Moderation log message colors */
+.log.warning {
+  color: #f59e0b;
+  background: rgba(245, 158, 11, 0.1);
+  border: 1px solid rgba(245, 158, 11, 0.2);
+}
+
+.log.error {
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+}
+
+.log.info {
+  color: #fbbf24;
+  background: rgba(251, 191, 36, 0.1);
+  border: 1px solid rgba(251, 191, 36, 0.2);
+}
+
+.log.info-blue {
+  color: #3b82f6;
+  background: rgba(59, 130, 246, 0.1);
+  border: 1px solid rgba(59, 130, 246, 0.2);
+}
+
+.log.success {
+  color: #10b981;
+  background: rgba(16, 185, 129, 0.1);
+  border: 1px solid rgba(16, 185, 129, 0.2);
 }
 
 /* Notification styles */
@@ -1669,9 +1904,9 @@ ul {
   opacity: 0.5;
 }
 
-/* Admin modal styles */
+/* Admin modal styles - Widget Constrained */
 .admin-modal-overlay {
-  position: fixed;
+  position: absolute;
   top: 0;
   left: 0;
   right: 0;
@@ -1687,8 +1922,9 @@ ul {
   background: #374151;
   border-radius: 8px;
   border: 1px solid #4b5563;
-  max-width: 400px;
-  width: 90%;
+  max-width: 380px;
+  width: 95%;
+  margin: 10px;
   box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
 }
 
@@ -1881,12 +2117,12 @@ ul {
 }
 
 .input-section:has(.reply-preview:not(.hidden)) {
-  height: 70px;
+  height: 65px;
 }
 
 /* Update messages height when reply preview is shown */
 .chatArea:has(.reply-preview:not(.hidden)) .messages {
-  height: calc(100% - 70px);
+  height: calc(100% - 65px);
 }
 
 /* Mobile responsive adjustments - not needed for iframe but keeping for compatibility */
@@ -1907,8 +2143,8 @@ ul {
   }
 
       .inputMessage {
-      font-size: 0.9rem !important;
-      padding: 0 10px !important;
+      font-size: 0.85rem !important;
+      padding: 0 12px !important;
     }
 } 
 
@@ -2052,9 +2288,9 @@ ul {
   color: #f87171;
 } 
 
-/* Direct Message Modal */
+/* Direct Message Modal - Widget Constrained */
 .dm-modal-overlay {
-  position: fixed;
+  position: absolute;
   top: 0;
   left: 0;
   right: 0;
@@ -2070,17 +2306,18 @@ ul {
 
 .dm-modal {
   background: linear-gradient(135deg, #1e293b, #334155);
-  border-radius: 12px;
+  border-radius: 8px;
   border: 1px solid rgba(255, 255, 255, 0.1);
   box-shadow: 0 25px 50px rgba(0, 0, 0, 0.5);
-  width: 95%;
-  max-width: 700px;
-  min-width: 600px;
-  height: 600px;
-  max-height: 80vh;
+  width: 90%;
+  max-width: 320px;
+  height: 75%;
+  max-height: 400px;
+  min-height: 300px;
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  margin: 5px;
 }
 
 .dm-modal-header {
@@ -2233,9 +2470,9 @@ ul {
   background: rgba(255, 255, 255, 0.3);
 } 
 
-/* DM Search Modal */
+/* DM Search Modal - Widget Constrained */
 .dm-search-modal-overlay {
-  position: fixed;
+  position: absolute;
   top: 0;
   left: 0;
   right: 0;
@@ -2251,16 +2488,17 @@ ul {
 
 .dm-search-modal {
   background: linear-gradient(135deg, #1e293b, #334155);
-  border-radius: 12px;
+  border-radius: 8px;
   border: 1px solid rgba(255, 255, 255, 0.1);
   box-shadow: 0 25px 50px rgba(0, 0, 0, 0.5);
-  width: 90%;
-  max-width: 400px;
+  width: 95%;
+  max-width: 380px;
   height: auto;
-  max-height: 500px;
+  max-height: 450px;
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  margin: 10px;
 }
 
 .dm-search-modal-header {
@@ -2425,9 +2663,9 @@ ul {
   border-radius: 2px;
 }
 
-/* DM Interface (Discord/WhatsApp style) */
+/* DM Interface (Discord/WhatsApp style) - Widget Constrained */
 .dm-interface-overlay {
-  position: fixed;
+  position: absolute;
   top: 0;
   left: 0;
   right: 0;
@@ -2443,16 +2681,17 @@ ul {
 
 .dm-interface {
   background: linear-gradient(135deg, #1e293b, #334155);
-  border-radius: 12px;
+  border-radius: 8px;
   border: 1px solid rgba(255, 255, 255, 0.1);
   box-shadow: 0 25px 50px rgba(0, 0, 0, 0.5);
-  width: 90vw;
-  max-width: 800px;
-  height: 70vh;
-  max-height: 600px;
+  width: 95%;
+  max-width: 380px;
+  height: 85vh;
+  max-height: 500px;
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  margin: 10px;
 }
 
 .dm-interface-header {
@@ -3141,34 +3380,7 @@ ul {
   line-height: 1.5;
 }
 
-/* Status Bar Messages Button */
-.status-btn.messages-btn {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 12px;
-  background: rgba(99, 102, 241, 0.1);
-  border: 1px solid rgba(99, 102, 241, 0.2);
-  border-radius: 6px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  position: relative;
-}
-
-.status-btn.messages-btn:hover {
-  background: rgba(99, 102, 241, 0.2);
-  border-color: rgba(99, 102, 241, 0.3);
-}
-
-.status-btn.messages-btn .status-icon {
-  font-size: 0.9rem;
-}
-
-.status-btn.messages-btn .status-text {
-  color: #f1f5f9;
-  font-size: 0.8rem;
-  font-weight: 500;
-}
+/* Messages button removed per user request - using DM icon instead */
 
 .dm-count-badge {
   background: #ef4444;

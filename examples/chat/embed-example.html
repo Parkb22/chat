@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat Widget Embed Example</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 40px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+        }
+        .embed-code {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 4px;
+            padding: 20px;
+            margin: 20px 0;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            overflow-x: auto;
+        }
+        .note {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            border-radius: 4px;
+            padding: 15px;
+            margin: 20px 0;
+            color: #155724;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 DegenChat Widget Embed</h1>
+        
+        <p>Add this DegenChat widget to any website with just a few lines of code!</p>
+        
+        <div class="note">
+            <strong>📋 Instructions:</strong>
+            <ol>
+                <li>Copy the code below</li>
+                <li>Paste it anywhere in your HTML page (preferably before closing &lt;/body&gt; tag)</li>
+                <li>That's it! The chat widget will appear as a floating button</li>
+            </ol>
+        </div>
+
+        <h3>📝 Embed Code:</h3>
+        <div class="embed-code">
+&lt;!-- DegenChat Widget --&gt;
+&lt;div id="chat-widget-button" class="chat-button" onclick="toggleChat()"&gt;
+  &lt;span class="chat-icon"&gt;💬&lt;/span&gt;
+  &lt;div class="notification-badge hidden"&gt;1&lt;/div&gt;
+&lt;/div&gt;
+
+&lt;div id="chat-widget" class="chat-widget hidden"&gt;
+  &lt;iframe src="https://chat.gamescampus.co.kr/widget.html" 
+          width="100%" 
+          height="100%" 
+          frameborder="0"
+          allow="clipboard-write"&gt;
+  &lt;/iframe&gt;
+&lt;/div&gt;
+
+&lt;style&gt;
+.chat-button {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  width: 60px;
+  height: 60px;
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 1001;
+  transition: all 0.3s ease;
+  box-shadow: 0 10px 25px rgba(99, 102, 241, 0.3);
+}
+
+.chat-button:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 15px 35px rgba(99, 102, 241, 0.4);
+}
+
+.chat-icon {
+  font-size: 1.5rem;
+}
+
+.notification-badge {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  background: #ef4444;
+  color: white;
+  border-radius: 50%;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.notification-badge.hidden {
+  display: none;
+}
+
+.chat-widget {
+  position: fixed;
+  bottom: 100px;
+  right: 20px;
+  width: 420px;
+  height: 600px;
+  background: #1e293b;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 25px 50px rgba(0, 0, 0, 0.3);
+  z-index: 1000;
+  transition: all 0.3s ease;
+  overflow: hidden;
+}
+
+.chat-widget.hidden {
+  opacity: 0;
+  transform: translateY(20px) scale(0.95);
+  pointer-events: none;
+}
+&lt;/style&gt;
+
+&lt;script&gt;
+let chatVisible = false;
+
+function toggleChat() {
+  const chatWidget = document.getElementById('chat-widget');
+  const chatButton = document.getElementById('chat-widget-button');
+  const badge = document.querySelector('.notification-badge');
+  
+  chatVisible = !chatVisible;
+  
+  if (chatVisible) {
+    chatWidget.classList.remove('hidden');
+    badge.classList.add('hidden');
+  } else {
+    chatWidget.classList.add('hidden');
+  }
+}
+
+// Close chat when clicking outside
+document.addEventListener('click', function(e) {
+  const chatWidget = document.getElementById('chat-widget');
+  const chatButton = document.getElementById('chat-widget-button');
+  
+  if (chatVisible && 
+      !chatWidget.contains(e.target) && 
+      !chatButton.contains(e.target)) {
+    toggleChat();
+  }
+});
+&lt;/script&gt;
+&lt;!-- End DegenChat Widget --&gt;
+        </div>
+
+        <div class="note">
+            <strong>🎨 Customization Options:</strong>
+            <ul>
+                <li><strong>Change Colors:</strong> Modify the <code>background: linear-gradient(135deg, #6366f1, #8b5cf6);</code> line</li>
+                <li><strong>Different Position:</strong> Change <code>bottom: 20px; right: 20px;</code> to <code>bottom: 20px; left: 20px;</code></li>
+                <li><strong>Different Size:</strong> Adjust <code>width: 420px; height: 600px;</code></li>
+                <li><strong>Custom Icon:</strong> Replace the 💬 emoji with any other emoji or text</li>
+            </ul>
+        </div>
+
+        <h3>🔧 Troubleshooting:</h3>
+        <ul>
+            <li>If the widget doesn't appear, check browser console for errors</li>
+            <li>Make sure the domain <code>chat.gamescampus.co.kr</code> is accessible</li>
+            <li>Test in an incognito window to rule out browser extensions</li>
+            <li>Ensure JavaScript is enabled in the browser</li>
+        </ul>
+    </div>
+
+    <!-- Demo: The actual widget embedded on this page -->
+    <div id="chat-widget-button" class="chat-button" onclick="toggleChat()">
+      <span class="chat-icon">💬</span>
+      <div class="notification-badge hidden">1</div>
+    </div>
+
+    <div id="chat-widget" class="chat-widget hidden">
+      <iframe src="https://chat.gamescampus.co.kr/widget.html" 
+              width="100%" 
+              height="100%" 
+              frameborder="0"
+              allow="clipboard-write">
+      </iframe>
+    </div>
+
+    <style>
+    .chat-button {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      width: 60px;
+      height: 60px;
+      background: linear-gradient(135deg, #6366f1, #8b5cf6);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      z-index: 1001;
+      transition: all 0.3s ease;
+      box-shadow: 0 10px 25px rgba(99, 102, 241, 0.3);
+    }
+
+    .chat-button:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 15px 35px rgba(99, 102, 241, 0.4);
+    }
+
+    .chat-icon {
+      font-size: 1.5rem;
+    }
+
+    .notification-badge {
+      position: absolute;
+      top: -5px;
+      right: -5px;
+      background: #ef4444;
+      color: white;
+      border-radius: 50%;
+      width: 20px;
+      height: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+
+    .notification-badge.hidden {
+      display: none;
+    }
+
+    .chat-widget {
+      position: fixed;
+      bottom: 100px;
+      right: 20px;
+      width: 420px;
+      height: 600px;
+      background: #1e293b;
+      border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      box-shadow: 0 25px 50px rgba(0, 0, 0, 0.3);
+      z-index: 1000;
+      transition: all 0.3s ease;
+      overflow: hidden;
+    }
+
+    .chat-widget.hidden {
+      opacity: 0;
+      transform: translateY(20px) scale(0.95);
+      pointer-events: none;
+    }
+    </style>
+
+    <script>
+    let chatVisible = false;
+
+    function toggleChat() {
+      const chatWidget = document.getElementById('chat-widget');
+      const chatButton = document.getElementById('chat-widget-button');
+      const badge = document.querySelector('.notification-badge');
+      
+      chatVisible = !chatVisible;
+      
+      if (chatVisible) {
+        chatWidget.classList.remove('hidden');
+        badge.classList.add('hidden');
+      } else {
+        chatWidget.classList.add('hidden');
+      }
+    }
+
+    // Close chat when clicking outside
+    document.addEventListener('click', function(e) {
+      const chatWidget = document.getElementById('chat-widget');
+      const chatButton = document.getElementById('chat-widget-button');
+      
+      if (chatVisible && 
+          !chatWidget.contains(e.target) && 
+          !chatButton.contains(e.target)) {
+        toggleChat();
+      }
+    });
+    </script>
+</body>
+</html> 

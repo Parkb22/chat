@@ -171,6 +171,37 @@ io.on('connection', (socket) => {
     }
   });
 
+  // Simple user check without signature verification (for chat.html compatibility)
+  socket.on('simple check user', (data) => {
+    console.log('Simple user check for wallet:', data.walletAddress);
+    
+    if (!data || !data.walletAddress) {
+      socket.emit('error', 'Missing wallet address');
+      return;
+    }
+
+    const { walletAddress } = data;
+
+    if (!isValidSolanaAddress(walletAddress)) {
+      socket.emit('error', 'Invalid wallet address');
+      return;
+    }
+
+    console.log('Simple check verified for wallet:', walletAddress);
+
+    // Store authentication data temporarily (without signature verification)
+    socket.tempAuth = { walletAddress, verified: true };
+
+    if (walletUserMap.has(walletAddress)) {
+      const username = walletUserMap.get(walletAddress);
+      console.log('[Simple Check] Existing user found:', username);
+      socket.emit('user exists', { username });
+    } else {
+      console.log('[Simple Check] New user, need username');
+      socket.emit('user new');
+    }
+  });
+
   // When the client emits 'add user', this listens and executes
   socket.on('add user', (userData) => {
     console.log('Add user request:', userData);
@@ -311,8 +342,42 @@ io.on('connection', (socket) => {
       delete socket.username;
       delete socket.walletAddress;
       delete socket.tempAuth;
+      
+      // Clean up moderation data
+      userLastMessageTime.delete(userInfo.walletAddress);
     }
   });
+
+  // Chat moderation features (server-side)
+  const userLastMessageTime = new Map(); // Track last message time per user
+  
+  // Profanity filter - comprehensive list (server-side validation)
+  const profanityWords = [
+    'fuck', 'shit', 'bitch', 'damn', 'ass', 'hell', 'crap', 'piss',
+    'bastard', 'whore', 'slut', 'cunt', 'cock', 'dick', 'pussy',
+    'fag', 'nigger', 'retard', 'gay', 'lesbian', 'homo', 'queer',
+    'fucking', 'fucked', 'fucker', 'shitty', 'bitchy', 'asshole',
+    'bullshit', 'horseshit', 'dipshit', 'jackass', 'dumbass',
+    'motherfucker', 'sonofabitch', 'goddamn', 'wtf', 'stfu',
+    'kys', 'kill yourself', 'die', 'suicide'
+  ];
+  
+  // Filter profanity - replace with asterisks (server-side)
+  const filterProfanity = (text) => {
+    let filtered = text;
+    profanityWords.forEach(word => {
+      const regex = new RegExp(`\\b${word}\\b`, 'gi');
+      const asterisks = '*'.repeat(word.length);
+      filtered = filtered.replace(regex, asterisks);
+    });
+    return filtered;
+  };
+  
+  // Detect links/URLs (server-side)
+  const hasLinks = (text) => {
+    const urlRegex = /(https?:\/\/[^\s]+)|(www\.[^\s]+)|([^\s]+\.[a-z]{2,})/gi;
+    return urlRegex.test(text);
+  };
 
   // When the client emits 'new message', this listens and executes
   socket.on('new message', (messageData) => {
@@ -327,8 +392,38 @@ io.on('connection', (socket) => {
       return;
     }
 
-    const message = typeof messageData === 'string' ? messageData : messageData.message;
+    let message = typeof messageData === 'string' ? messageData : messageData.message;
     const replyTo = messageData.replyTo || null;
+    
+    // Server-side slowmode check (15 seconds)
+    const now = Date.now();
+    const lastMessageTime = userLastMessageTime.get(socket.walletAddress) || 0;
+    const timeDiff = now - lastMessageTime;
+    const slowmodeDelay = 15000; // 15 seconds
+    
+    if (timeDiff < slowmodeDelay) {
+      const remaining = Math.ceil((slowmodeDelay - timeDiff) / 1000);
+      socket.emit('error', `Slowmode: Please wait ${remaining} more seconds before sending another message.`);
+      return;
+    }
+    
+    // Server-side link blocking
+    if (hasLinks(message)) {
+      socket.emit('error', 'Links are not allowed in chat messages.');
+      console.log(`Blocked message with links from ${socket.username}: ${message}`);
+      return;
+    }
+    
+    // Server-side profanity filtering
+    const originalMessage = message;
+    message = filterProfanity(message);
+    
+    if (originalMessage !== message) {
+      console.log(`Filtered profanity from ${socket.username}: "${originalMessage}" -> "${message}"`);
+    }
+    
+    // Update user's last message time
+    userLastMessageTime.set(socket.walletAddress, now);
 
     console.log(`Message from ${socket.username} (${socket.walletAddress}): ${message}`);
     

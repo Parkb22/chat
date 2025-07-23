@@ -30,13 +30,7 @@
                 </div>
               </div>
               
-              <div class="menu-section">
-                <div class="menu-item" id="direct-messages-header">
-                  <span class="menu-item-icon">💬</span>
-                  <span class="menu-item-text">Direct Messages</span>
-                  <span class="menu-item-badge dm-count hidden">0</span>
-                </div>
-              </div>
+              <!-- Direct Messages moved to separate icon in userControls -->
               
               <div class="menu-section">
                 <div class="menu-item danger disconnect-menu-btn">
@@ -58,6 +52,11 @@
           </div>
           
           <div class="userControls">
+            <!-- Direct Messages Icon -->
+            <button class="dm-icon-button" id="direct-messages-icon" title="Direct Messages">
+              💬
+              <span class="dm-notification-badge hidden">0</span>
+            </button>
             <!-- User count will be added here dynamically -->
           </div>
         </div>
@@ -109,7 +108,7 @@
     <li class="wallet page active">
       <div class="form">
         <h3 class="title">Connect Your Wallet</h3>
-        <p class="subtitle">Please connect your Solana wallet to join Degen Park Chat</p>
+        <p class="subtitle">Enter the Degen Park ecosystem • Powered by Solana</p>
         <div class="walletButtons">
           <button class="connectWallet" id="phantom">
             <img src="data:image/svg+xml;base64,PHN2ZyBmaWxsPSJub25lIiBoZWlnaHQ9IjM0IiB3aWR0aD0iMzQiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGxpbmVhckdyYWRpZW50IGlkPSJhIiB4MT0iLjUiIHgyPSIuNSIgeTE9IjAiIHkyPSIxIj48c3RvcCBvZmZzZXQ9IjAiIHN0b3AtY29sb3I9IiM1MzRiYjEiLz48c3RvcCBvZmZzZXQ9IjEiIHN0b3AtY29sb3I9IiM1NTFiZjkiLz48L2xpbmVhckdyYWRpZW50PjxsaW5lYXJHcmFkaWVudCBpZD0iYiIgeDE9Ii41IiB4Mj0iLjUiIHkxPSIwIiB5Mj0iMSI+PHN0b3Agb2Zmc2V0PSIwIiBzdG9wLWNvbG9yPSIjZmZmIi8+PHN0b3Agb2Zmc2V0PSIxIiBzdG9wLWNvbG9yPSIjZmZmIiBzdG9wLW9wYWNpdHk9Ii44MiIvPjwvbGluZWFyR3JhZGllbnQ+PGNpcmNsZSBjeD0iMTciIGN5PSIxNyIgZmlsbD0idXJsKCNhKSIgcj0iMTciLz48cGF0aCBkPSJtMjEuMjc5MSAxMi4zNzQzYy4yOTUxLS40OTQ2LjE4MDMtMS4xMjY3LS4yNTEzLTEuNDY1OGwtLjU3NDgtLjQ1MTljLS4zNzE5LS4yOTI1LS44ODUyLS4yOTA2LTEuMjU0OC4wMDMzLS4zNjk2LjI5MzgtLjg5NzMuMjk5Ni0xLjI3MzMuMDEzNHMtLjg5MDgtLjI2ODgtMS4yODQyLjAwMzRjLS4zOTM0LjI3MjMtLjkyODEuMjk5MS0xLjMyNjMuMDc2LS4zOTgxLS4yMjMxLS45MTYzLS4yMDQtMS4zMDM0LjA0OGwtLjU2MS40NTQyYy0uNDQzMi4zNTgxLS41NTUxLjk5NTItLjI1OTQgMS40NjE1bC0uMTkzNC4xMDQ1LS4xNDM2LS4wMjE2Yy0uMzg1NC0uMDU4LS43MDA1LjI2OTEtLjcwNzguNjYyNmwtLjAzNDcgMS44NzQ5Yy0uMDA0OS4yNjYyLjE5MDguNDc4OS40NDcxLjUwMjguMzE4Ni4wMjk3LjU5NzctLjE5NDMuNjI3Mi0uNTE4Ny4wMjk1LS4zMjQzLS4yMzc0LS42MDY1LS41OTU2LS42MzAyeiIgZmlsbD0idXJsKCNiKSIvPjwvc3ZnPg==" alt="Phantom" />

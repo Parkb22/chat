@@ -76,6 +76,173 @@ $(function() {
 
   // Wallet connection functionality
 
+  // Check for existing session and auto-reconnect
+  const checkExistingSession = async () => {
+    try {
+      console.log('[Session] Checking for existing session...');
+      
+      const savedUsername = localStorage.getItem('chatUsername');
+      const savedWalletAddress = localStorage.getItem('chatWalletAddress');
+      const savedWalletType = localStorage.getItem('chatWalletType') || 'phantom';
+      const savedDegenParkProfile = localStorage.getItem('chatDegenParkProfile');
+      const savedDegenParkTokens = localStorage.getItem('chatDegenParkTokens');
+      
+      if (savedUsername && savedWalletAddress) {
+        console.log('[Session] Found existing session:', {
+          username: savedUsername,
+          walletAddress: savedWalletAddress,
+          walletType: savedWalletType
+        });
+        
+        // Try to reconnect to wallet
+        const provider = getWalletProvider(savedWalletType);
+        if (provider) {
+          try {
+            // Check if wallet is still connected (only if trusted to avoid popup)
+            let isConnected = false;
+            
+            // Check different connection methods for different wallets
+            if (provider.isConnected) {
+              isConnected = provider.isConnected;
+            } else if (provider.publicKey) {
+              isConnected = true;
+            } else {
+              // Try silent connection (won't show popup)
+              try {
+                const response = await provider.connect({ onlyIfTrusted: true });
+                isConnected = !!(response && response.publicKey);
+              } catch (silentError) {
+                console.log('[Session] Silent connection failed, wallet not auto-connected');
+                isConnected = false;
+              }
+            }
+            
+            if (isConnected) {
+              console.log('[Session] Wallet still connected, restoring session');
+              
+              // Restore session variables
+              username = savedUsername;
+              walletAddress = savedWalletAddress;
+              window.username = username;
+              window.walletAddress = walletAddress;
+              window.walletConnected = true;
+              currentWalletProvider = provider;
+              currentWalletType = savedWalletType;
+              
+              // Restore DegenPark profile if exists
+              if (savedDegenParkProfile) {
+                try {
+                  window.degenParkProfile = JSON.parse(savedDegenParkProfile);
+                  console.log('[Session] Restored DegenPark profile:', window.degenParkProfile);
+                } catch (e) {
+                  console.warn('[Session] Failed to parse DegenPark profile:', e);
+                }
+              }
+              
+              // Restore DegenPark tokens if exists
+              if (savedDegenParkTokens) {
+                try {
+                  degenParkTokens = JSON.parse(savedDegenParkTokens);
+                  console.log('[Session] Restored DegenPark tokens');
+                } catch (e) {
+                  console.warn('[Session] Failed to parse DegenPark tokens:', e);
+                }
+              }
+              
+              // Go directly to chat
+              $walletPage.removeClass('active');
+              $usernamePage.removeClass('active');
+              $chatPage.addClass('active');
+              $currentInput = $inputMessage.focus();
+              
+              // Update user display
+              updateUserDisplay();
+              
+              // Join the chat with restored credentials
+              const socketData = {
+                walletAddress: walletAddress,
+                username: username,
+                isDegenPark: !!window.degenParkProfile,
+                avatar: window.degenParkProfile?.avatar || null,
+                degenParkProfile: window.degenParkProfile || null
+              };
+              
+              // Add level data if available
+              if (window.degenParkLevel) {
+                socketData.level = window.degenParkLevel.level;
+                console.log('[Session] Including level data:', window.degenParkLevel.level);
+              }
+              
+              console.log('[Session] Joining chat with restored session:', socketData);
+              socket.emit('add user', socketData);
+              
+              console.log('[Session] ✅ Session restored successfully!');
+              return; // Exit early - session restored
+              
+            } else {
+              console.log('[Session] Wallet no longer connected, clearing session');
+              clearStoredSession();
+            }
+          } catch (walletError) {
+            console.log('[Session] Wallet connection failed, clearing session:', walletError);
+            clearStoredSession();
+          }
+        } else {
+          console.log('[Session] Wallet provider not available, clearing session');
+          clearStoredSession();
+        }
+      } else {
+        console.log('[Session] No existing session found');
+      }
+      
+    } catch (error) {
+      console.error('[Session] Error checking existing session:', error);
+      clearStoredSession();
+    }
+  };
+  
+  // Clear stored session data
+  const clearStoredSession = () => {
+    console.log('[Session] Clearing stored session data');
+    localStorage.removeItem('chatUsername');
+    localStorage.removeItem('chatWalletAddress'); 
+    localStorage.removeItem('chatWalletType');
+    localStorage.removeItem('chatDegenParkProfile');
+    localStorage.removeItem('chatDegenParkTokens');
+  };
+
+  // Emergency session reset (accessible via console)
+  window.resetChatSession = () => {
+    console.log('[Session] Emergency session reset triggered');
+    clearStoredSession();
+    location.reload();
+  };
+
+  // Debug function (accessible via console)
+  window.debugChat = () => {
+    console.log('=== CHAT DEBUG INFO ===');
+    console.log('Wallet Address:', window.walletAddress);
+    console.log('Username:', window.username);
+    console.log('Connected:', window.walletConnected);
+    console.log('Current Wallet Provider:', currentWalletProvider);
+    console.log('Current Wallet Type:', currentWalletType);
+    console.log('Wallet Page Active:', $('.wallet.page.active').length > 0);
+    console.log('Username Page Active:', $('.username.page.active').length > 0);
+    console.log('Chat Page Active:', $('.chat.page.active').length > 0);
+    console.log('Connect Buttons Found:', $('.connectWallet').length);
+    console.log('Session Data:', {
+      username: localStorage.getItem('chatUsername'),
+      address: localStorage.getItem('chatWalletAddress'),
+      type: localStorage.getItem('chatWalletType')
+    });
+    console.log('Available Wallets:', {
+      phantom: !!(window.solana || window.phantom?.solana),
+      solflare: !!window.solflare,
+      backpack: !!window.backpack
+    });
+    console.log('======================');
+  };
+
   // Wallet provider detection
   const getWalletProvider = (walletType) => {
     switch(walletType) {
@@ -90,16 +257,24 @@ $(function() {
     }
   };
 
+  // Initialize session restoration after wallet provider is defined
+  setTimeout(() => {
+    checkExistingSession();
+  }, 100);
+
   // Connect to wallet with DegenPark API integration
   const connectWallet = async (walletType = 'phantom') => {
     try {
+      console.log(`[Wallet] Starting connection to ${walletType} wallet...`);
+      
       const provider = getWalletProvider(walletType);
       
       if (!provider) {
+        console.error(`[Wallet] ${walletType} provider not found`);
         throw new Error(`${walletType} wallet not found! Please install the ${walletType} wallet extension.`);
       }
 
-      console.log(`[Wallet] Connecting to ${walletType} wallet...`);
+      console.log(`[Wallet] Provider found, attempting connection...`);
       const response = await provider.connect();
       const publicKey = response.publicKey.toString();
       console.log('[Wallet] Connected:', publicKey);
@@ -440,9 +615,21 @@ $(function() {
           username = degenParkProfile.username;
           window.username = username;
           
-          // Store in localStorage
+          // Store session in localStorage
           localStorage.setItem('chatUsername', username);
           localStorage.setItem('chatWalletAddress', publicKey);
+          localStorage.setItem('chatWalletType', walletType);
+          
+          // Store DegenPark profile if available
+          if (degenParkProfile) {
+            localStorage.setItem('chatDegenParkProfile', JSON.stringify(degenParkProfile));
+            window.degenParkProfile = degenParkProfile;
+          }
+          
+          // Store DegenPark tokens if available
+          if (degenParkTokens) {
+            localStorage.setItem('chatDegenParkTokens', JSON.stringify(degenParkTokens));
+          }
           
           // Transition to chat
           $('.username.page').hide();
@@ -484,7 +671,17 @@ $(function() {
 
     } catch (error) {
       console.error('[Wallet] Connection error:', error);
-      alert('Failed to connect wallet: ' + error.message);
+      console.error('[Wallet] Error stack:', error.stack);
+      
+      // Show user-friendly error message
+      const errorMsg = error.message || 'Unknown error occurred';
+      log(`❌ Wallet connection failed: ${errorMsg}`, { color: '#ef4444' });
+      
+      // Also show alert for now
+      alert('Failed to connect wallet: ' + errorMsg);
+      
+      // Clear any loading states
+      $('.connectWallet').text('Connect Wallet').prop('disabled', false);
     }
   };
 
@@ -752,6 +949,9 @@ $(function() {
       currentWalletProvider = null;
       currentWalletType = null;
       
+      // Clear stored session
+      clearStoredSession();
+      
       // Clear UI
       $usernameDisplay.text('');
       $usernameInput.val('');
@@ -877,6 +1077,23 @@ $(function() {
 
       // Emit to server with all user data
       socket.emit('add user', userData);
+
+      // Store session in localStorage
+      localStorage.setItem('chatUsername', username);
+      localStorage.setItem('chatWalletAddress', window.walletAddress);
+      localStorage.setItem('chatWalletType', currentWalletType || 'phantom');
+      
+      // Store DegenPark profile if available
+      if (window.degenParkProfile) {
+        localStorage.setItem('chatDegenParkProfile', JSON.stringify(window.degenParkProfile));
+      }
+      
+      // Store DegenPark tokens if available
+      if (degenParkTokens) {
+        localStorage.setItem('chatDegenParkTokens', JSON.stringify(degenParkTokens));
+      }
+      
+      console.log('[Session] Session saved after setting username');
 
       // Update UI
       $('.username.page').hide();
@@ -1086,19 +1303,122 @@ $(function() {
           log('Usage: /ban <username> or /ban @username');
         }
         break;
+      case '/slowmode':
+        if (target) {
+          const seconds = parseInt(target);
+          if (seconds >= 0 && seconds <= 60) {
+            log(`Admin: Slowmode set to ${seconds} seconds between messages.`, { color: '#10b981' });
+            // TODO: Implement server-side slowmode adjustment
+          } else {
+            log('Usage: /slowmode <seconds> (0-60). Use 0 to disable slowmode.');
+          }
+        } else {
+          log('Usage: /slowmode <seconds> (0-60). Use 0 to disable slowmode. Current: 15 seconds.');
+        }
+        break;
       case '/help':
-        log('Admin commands: /mute <user>, /unmute <user>, /ban <user>, /unban <user>. You can use @ or just username.');
+        log('Admin commands: /mute <user>, /unmute <user>, /ban <user>, /unban <user>, /slowmode <seconds>. You can use @ or just username.');
         break;
       default:
         log(`Unknown command: ${command}. Type /help for available commands.`);
     }
   }
 
+  // Chat moderation features
+  let lastMessageTime = 0;
+  
+  // Profanity filter - comprehensive list
+  const profanityWords = [
+    'fuck', 'shit', 'bitch', 'damn', 'ass', 'hell', 'crap', 'piss',
+    'bastard', 'whore', 'slut', 'cunt', 'cock', 'dick', 'pussy',
+    'fag', 'nigger', 'retard', 'gay', 'lesbian', 'homo', 'queer',
+    'fucking', 'fucked', 'fucker', 'shitty', 'bitchy', 'asshole',
+    'bullshit', 'horseshit', 'dipshit', 'jackass', 'dumbass',
+    'motherfucker', 'sonofabitch', 'goddamn', 'wtf', 'stfu',
+    'kys', 'kill yourself', 'die', 'suicide'
+  ];
+  
+  // Filter profanity - replace with asterisks
+  const filterProfanity = (text) => {
+    let filtered = text;
+    profanityWords.forEach(word => {
+      const regex = new RegExp(`\\b${word}\\b`, 'gi');
+      const asterisks = '*'.repeat(word.length);
+      filtered = filtered.replace(regex, asterisks);
+    });
+    return filtered;
+  };
+  
+  // Detect links/URLs
+  const hasLinks = (text) => {
+    const urlRegex = /(https?:\/\/[^\s]+)|(www\.[^\s]+)|([^\s]+\.[a-z]{2,})/gi;
+    return urlRegex.test(text);
+  };
+  
+  // Check slowmode cooldown
+  const checkSlowmode = () => {
+    const now = Date.now();
+    const timeDiff = now - lastMessageTime;
+    const slowmodeDelay = 15000; // 15 seconds
+    
+    if (timeDiff < slowmodeDelay) {
+      const remaining = Math.ceil((slowmodeDelay - timeDiff) / 1000);
+      return { blocked: true, remaining };
+    }
+    
+    return { blocked: false };
+  };
+  
+  // Visual slowmode cooldown
+  const startSlowmodeCooldown = () => {
+    const slowmodeDelay = 15000; // 15 seconds
+    let remaining = 15;
+    
+    // Disable input and show countdown
+    $inputMessage.prop('disabled', true);
+    
+    const countdown = setInterval(() => {
+      $inputMessage.attr('placeholder', `⏰ Slowmode: ${remaining}s remaining...`);
+      remaining--;
+      
+      if (remaining < 0) {
+        clearInterval(countdown);
+        $inputMessage.prop('disabled', false);
+        $inputMessage.attr('placeholder', 'Type here...');
+        $inputMessage.focus();
+      }
+    }, 1000);
+  };
+
   // Sends a chat message
   const sendMessage = () => {
     let message = $inputMessage.val();
     message = cleanInput(message);
     if (message && connected) {
+      // Check slowmode first
+      const slowmodeCheck = checkSlowmode();
+      if (slowmodeCheck.blocked) {
+        log(`⏰ Slowmode: Please wait ${slowmodeCheck.remaining} more seconds before sending another message.`, { color: '#fbbf24' });
+        return;
+      }
+      
+      // Check for links and block them
+      if (hasLinks(message)) {
+        log(`🚫 Links are not allowed in chat messages.`, { color: '#ef4444' });
+        $inputMessage.val(''); // Clear the input
+        return;
+      }
+      
+      // Apply profanity filter
+      const originalMessage = message;
+      message = filterProfanity(message);
+      
+      // Profanity filter applied silently - no notification needed
+      
+      // Update last message time and start cooldown visual
+      lastMessageTime = Date.now();
+      startSlowmodeCooldown();
+      
       $inputMessage.val('');
       
       // Debug command to check admin status
@@ -1397,9 +1717,23 @@ $(function() {
     hideMentionAutocomplete();
   };
 
-  // Log a message
-  const log = (message, options) => {
+  // Log a message with optional styling
+  const log = (message, options = {}) => {
     const $el = $('<li>').addClass('log').text(message);
+    
+    // Add color-based classes for moderation messages
+    if (options.color === '#fbbf24') {
+      $el.addClass('info');
+    } else if (options.color === '#ef4444') {
+      $el.addClass('error');
+    } else if (options.color === '#f59e0b') {
+      $el.addClass('warning');
+    } else if (options.color === '#3b82f6') {
+      $el.addClass('info-blue');
+    } else if (options.color === '#10b981') {
+      $el.addClass('success');
+    }
+    
     addMessageElement($el, options);
   }
 
@@ -1956,76 +2290,38 @@ $(function() {
     if ($userCount.length) {
       $userCount.text(count);
     } else {
-      // Create user count if it doesn't exist
+      // Create user count if it doesn't exist - PRESERVE DM BUTTON
       const userCountHtml = `
         <div class="user-count">
           <span class="user-count-icon">👥</span>
           <span class="user-count-number">${count}</span>
         </div>
       `;
-      $('.userControls').html(userCountHtml);
+      
+      // Check if DM button exists and preserve it
+      const $dmButton = $('.dm-icon-button');
+      if ($dmButton.length) {
+        // DM button exists, append user count after it
+        $('.userControls').append(userCountHtml);
+      } else {
+        // No DM button, use original behavior
+        $('.userControls').html(userCountHtml);
+      }
     }
     
     console.log('[UserCount] Updated to:', count);
   };
 
-  // Update connection status
-  const updateConnectionStatus = (status) => {
-    connectionState = status;
-    let $statusIndicator = $('.connection-status');
-    
-    if ($statusIndicator.length === 0) {
-      $statusIndicator = $(`
-        <div class="connection-status">
-          <div class="connection-dot"></div>
-          <span class="connection-text">Offline</span>
-        </div>
-      `);
-              // Add Messages button to status bar
-        const $messagesBtn = $(`
-          <button class="status-btn messages-btn" id="messages-mode-btn" title="Open Messages" style="display: flex !important;">
-            <span class="status-icon">💬</span>
-            <span class="status-text">Messages</span>
-            <span class="dm-count-badge hidden">0</span>
-          </button>
-        `);
-        
-        $messagesBtn.on('click', () => {
-          console.log('[Messages] Messages button clicked');
-          openMessagesInterface();
-        });
-        
-        // Add to userControls before disconnect button (insert before last element)
-        $('.userControls').children().last().before($statusIndicator);
-        $('.userControls').children().last().before($messagesBtn);
-        
-        console.log('[Status] Messages button added to userControls');
-        console.log('[Status] Messages button visible:', $messagesBtn.is(':visible'));
-        console.log('[Status] Messages button display:', $messagesBtn.css('display'));
-    }
-    
-    const $dot = $statusIndicator.find('.connection-dot');
-    const $text = $statusIndicator.find('.connection-text');
-    
-    $dot.removeClass('connected connecting disconnected').addClass(status);
-    
-    switch(status) {
-      case 'connected':
-        $text.text('Online');
-        break;
-      case 'connecting':
-        $text.text('Connecting...');
-        break;
-      case 'disconnected':
-        $text.text('Offline');
-        break;
-    }
-  }
+  // Connection status removed per user request - no longer needed
 
   // Keyboard events
   $window.keydown(event => {
     // Don't interfere if any modal is open
-    if ($('.admin-modal-overlay').length > 0 || $('#dm-search-modal').length > 0 || $('#dm-modal').length > 0) {
+    if ($('.admin-modal-overlay').length > 0 || 
+        $('#dm-search-modal').length > 0 || 
+        $('#dm-modal').length > 0 || 
+        $('#settings-modal').is(':visible') ||
+        $('.modal-overlay:visible').length > 0) {
       return;
     }
     
@@ -2174,6 +2470,8 @@ $(function() {
     }
     
     console.log('[Login] Successfully logged in. Admin:', data.isAdmin, 'DegenPark:', data.isDegenPark);
+    
+    // System messages removed per user request - cleaner chat experience
     
     // Update UI with user info
     updateUserDisplay();
@@ -2442,7 +2740,7 @@ $(function() {
 
   socket.io.on('reconnect', () => {
     log('you have been reconnected');
-    updateConnectionStatus('connected');
+    // Connection status removed per user request
     if (username && walletAddress) {
       // On reconnect, we need to re-authenticate
       log('Reconnecting... please reconnect your wallet');
@@ -2452,7 +2750,7 @@ $(function() {
 
   socket.io.on('reconnect_error', () => {
     log('attempt to reconnect has failed');
-    updateConnectionStatus('disconnected');
+    // Connection status removed per user request
   });
 
   // Admin event handlers
@@ -2505,7 +2803,7 @@ $(function() {
 
   // Initialize UI elements (after all functions are defined)
   showWelcomeMessage();
-  updateConnectionStatus('disconnected');
+  // Connection status initialization removed per user request
   
   // Set up scroll tracking for unread messages
   $('.messages').on('scroll', checkScrollPosition);
@@ -2671,8 +2969,10 @@ $(function() {
   const $menuDropdown = $('.menu-dropdown');
   const $menuSoundToggle = $('.menu-item.sound-toggle');
   const $disconnectMenuBtn = $('.disconnect-menu-btn');
-      const $dmHeaderBtn = $('#direct-messages-header');
-  const $dmCount = $('.dm-count');
+  
+  // Direct Messages elements (moved from hamburger menu)
+  const $dmIconButton = $('#direct-messages-icon');
+  const $dmNotificationBadge = $('.dm-notification-badge');
 
   // Menu state
   let menuOpen = false;
@@ -2682,6 +2982,21 @@ $(function() {
 
   // Initialize hamburger menu functionality
   const initializeMenu = () => {
+    // Ensure DM button exists in userControls (fallback creation)
+    if (!$('#direct-messages-icon').length) {
+      console.log('[DM Button] Not found in HTML, creating via JavaScript...');
+      const dmButtonHtml = `
+        <button class="dm-icon-button" id="direct-messages-icon" title="Direct Messages">
+          💬
+          <span class="dm-notification-badge hidden">0</span>
+        </button>
+      `;
+      $('.userControls').prepend(dmButtonHtml);
+      console.log('[DM Button] Created successfully');
+    } else {
+      console.log('[DM Button] Found in HTML');
+    }
+    
     // Toggle menu on hamburger click
     $hamburgerButton.on('click', (e) => {
       e.stopPropagation();
@@ -2702,10 +3017,10 @@ $(function() {
       playNotificationSound('click'); // Test sound
     });
 
-    // Direct messages trigger (from hamburger menu) - with conversation history
-    const $directMessagesBtn = $('#direct-messages-header');
-    $directMessagesBtn.on('click', () => {
-      closeMenu();
+    // Direct messages trigger (separate icon button) - with conversation history
+    // Use event delegation to handle dynamically created buttons
+    $(document).on('click', '#direct-messages-icon', () => {
+      console.log('[DM Button] Clicked!');
       openDirectMessagesWithHistory();
     });
 
@@ -2764,13 +3079,15 @@ $(function() {
     }
   };
 
-  // Update DM count display
+  // Update DM count display (now using separate icon badge)
   const updateDMCount = () => {
     const totalUnread = Array.from(unreadDMs.values()).reduce((sum, count) => sum + count, 0);
+    const $badge = $('.dm-notification-badge'); // Get fresh reference in case it was dynamically created
+    
     if (totalUnread > 0) {
-      $dmCount.text(totalUnread).removeClass('hidden');
+      $badge.text(totalUnread).removeClass('hidden');
     } else {
-      $dmCount.addClass('hidden');
+      $badge.addClass('hidden');
     }
     
     // Also update messages badge
@@ -2806,10 +3123,21 @@ $(function() {
     }
     
     $modal.show();
+    
+    // Focus the username input after modal is shown
+    setTimeout(() => {
+      $('#new-username').focus();
+    }, 100);
   };
 
   const closeSettingsModal = () => {
     $('#settings-modal').hide();
+    
+    // Restore focus to main chat input when modal closes
+    if (connected && username) {
+      $currentInput = $inputMessage;
+      $inputMessage.focus();
+    }
   };
 
   const updateUsername = async () => {
@@ -3685,6 +4013,11 @@ $(function() {
     }
   });
   $(document).on('click', '#update-username-btn', updateUsername);
+  // Prevent global keydown handler from interfering with settings modal input
+  $(document).on('keydown keypress keyup', '#new-username', function(e) {
+    e.stopPropagation(); // Prevent event from bubbling up to global handler
+  });
+  
   $(document).on('keypress', '#new-username', function(e) {
     if (e.which === 13) { // Enter key
       updateUsername();

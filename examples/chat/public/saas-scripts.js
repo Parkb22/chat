@@ -181,22 +181,57 @@ function copyCode() {
 
 // Demo chat widget functionality
 let chatVisible = false;
+let isExpanded = false;
 
-function toggleChat() {
+function toggleChat(forceClose = false) {
   const chatWidget = document.getElementById('chat-widget');
   const chatButton = document.getElementById('chat-widget-button');
   const badge = document.querySelector('.notification-badge');
   
-  chatVisible = !chatVisible;
-  
-  if (chatVisible) {
-    chatWidget.classList.remove('hidden');
-    // Remove annoying icon rotation - chatButton.style.transform = 'rotate(180deg)';
-    badge.classList.add('hidden');
-  } else {
+  // If forcing close or currently visible, close it
+  if (forceClose || chatVisible) {
+    chatVisible = false;
     chatWidget.classList.add('hidden');
-    // Remove annoying icon rotation - chatButton.style.transform = 'rotate(0deg)';
+    badge.classList.add('hidden');
+    
+    // If widget is expanded, also collapse it and notify iframe
+    if (isExpanded) {
+      isExpanded = false;
+      resetWidgetSize(chatWidget);
+      // Notify iframe to collapse
+      const iframe = chatWidget.querySelector('iframe');
+      if (iframe && iframe.contentWindow) {
+        iframe.contentWindow.postMessage({
+          type: 'widget_collapsed',
+          expanded: false
+        }, '*');
+      }
+      console.log('Chat widget collapsed from outside click');
+    }
+    
+    // Always ensure button is visible when widget is closed
+    if (chatButton) {
+      chatButton.style.display = '';
+    }
+  } else {
+    // Open the widget
+    chatVisible = true;
+    chatWidget.classList.remove('hidden');
+    badge.classList.add('hidden');
   }
+}
+
+function resetWidgetSize(chatWidget) {
+  // Reset all expansion styles
+  chatWidget.style.position = '';
+  chatWidget.style.top = '';
+  chatWidget.style.right = '';
+  chatWidget.style.width = '';
+  chatWidget.style.height = '';
+  chatWidget.style.zIndex = '';
+  chatWidget.style.borderRadius = '';
+  chatWidget.style.border = '';
+  chatWidget.style.boxShadow = '';
 }
 
 // Close chat when clicking outside
@@ -207,7 +242,7 @@ document.addEventListener('click', function(e) {
   if (chatVisible && 
       !chatWidget.contains(e.target) && 
       !chatButton.contains(e.target)) {
-    toggleChat();
+    toggleChat(true); // Force close with cleanup
   }
 });
 
@@ -242,7 +277,10 @@ window.addEventListener('message', function(event) {
     
     console.log('Widget expansion message received:', event.data.expanded);
     
-    if (event.data.expanded) {
+    // Update expansion state
+    isExpanded = event.data.expanded;
+    
+    if (isExpanded) {
       // Expand the widget - make it stick to the right side of the screen
       chatWidget.style.position = 'fixed';
       chatWidget.style.top = '0';
@@ -258,17 +296,15 @@ window.addEventListener('message', function(event) {
       if (chatButton) {
         chatButton.style.display = 'none';
       }
+      
+      // Make sure widget is visible when expanding
+      if (!chatVisible) {
+        chatVisible = true;
+        chatWidget.classList.remove('hidden');
+      }
     } else {
       // Return to normal chat widget size
-      chatWidget.style.position = '';
-      chatWidget.style.top = '';
-      chatWidget.style.right = '';
-      chatWidget.style.width = '';
-      chatWidget.style.height = '';
-      chatWidget.style.zIndex = '';
-      chatWidget.style.borderRadius = '';
-      chatWidget.style.border = '';
-      chatWidget.style.boxShadow = '';
+      resetWidgetSize(chatWidget);
       
       // Show the chat button again
       if (chatButton) {

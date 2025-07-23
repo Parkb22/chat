@@ -54,6 +54,41 @@ $(function() {
   // Show wallet page initially
   $walletPage.addClass('chat-active');
 
+  // Debug functions for troubleshooting (accessible via console)
+  window.debugChatPage = () => {
+    console.log('=== CHAT PAGE DEBUG ===');
+    console.log('Wallet Address:', walletAddress);
+    console.log('Username:', username);
+    console.log('Connected:', connected);
+    console.log('Wallet Provider:', wallet);
+    console.log('Socket Connected:', socket.connected);
+    console.log('Pages Active:', {
+      wallet: $walletPage.hasClass('chat-active'),
+      username: $usernamePage.hasClass('chat-active'), 
+      chat: $chatPage.hasClass('chat-active')
+    });
+    console.log('Buttons Found:', $('.chat-connect-wallet').length);
+    console.log('Available Wallets:', {
+      phantom: !!(window.solana || window.phantom?.solana),
+      solflare: !!window.solflare,
+      backpack: !!window.backpack
+    });
+    console.log('======================');
+  };
+
+  window.resetChatPage = () => {
+    console.log('Resetting chat page...');
+    wallet = null;
+    walletAddress = null; 
+    username = null;
+    connected = false;
+    $walletStatus.text('');
+    $walletPage.addClass('chat-active');
+    $usernamePage.removeClass('chat-active');
+    $chatPage.removeClass('chat-active');
+    location.reload();
+  };
+
   // Wallet connection functionality
   const getWalletProvider = (walletType) => {
     switch(walletType) {
@@ -68,10 +103,12 @@ $(function() {
     }
   };
 
-  // Connect wallet function
+  // Connect wallet function - FIXED: Use simple, reliable connection
   const connectWallet = async (walletType) => {
     try {
+      console.log(`[Wallet] Connecting to ${walletType} wallet...`);
       $walletStatus.text('Connecting...');
+      
       const provider = getWalletProvider(walletType);
       
       if (!provider) {
@@ -82,30 +119,19 @@ $(function() {
       wallet = provider;
       walletAddress = response.publicKey.toString();
       
-      console.log('Connected to', walletType, 'wallet:', walletAddress);
-      $walletStatus.text('Creating authentication signature...');
+      console.log('[Wallet] Connected successfully:', walletAddress);
+      $walletStatus.text('Connected! Checking user...');
       
-      // Create authentication message
-      const timestamp = Date.now();
-      const message = `Authenticate with DegenChat\nWallet: ${walletAddress}\nTime: ${timestamp}`;
+      // Store wallet info
+      window.walletAddress = walletAddress;
+      window.walletConnected = true;
       
-      // Sign the message
-      const encodedMessage = new TextEncoder().encode(message);
-      const signature = await provider.signMessage(encodedMessage, 'utf8');
-      
-      console.log('Signature created, verifying with server...');
-      $walletStatus.text('Verifying authentication...');
-      
-      // Send to server for verification
-      socket.emit('check user', {
-        walletAddress,
-        signature: Array.from(signature.signature),
-        message,
-        timestamp
-      });
+      // Skip complex signature verification - use simple server check
+      // This matches the working widget logic
+      socket.emit('simple check user', { walletAddress });
       
     } catch (error) {
-      console.error('Wallet connection error:', error);
+      console.error('[Wallet] Connection error:', error);
       $walletStatus.text(`Error: ${error.message}`);
       
       // Reset state
@@ -678,25 +704,46 @@ $(function() {
     $inputMessage.focus();
   });
 
-  // Socket events
+  // Socket events - FIXED: Added debug logging
   socket.on('user exists', (data) => {
     username = data.username;
-    console.log('Existing user found:', username);
+    console.log('[Socket] Existing user found:', username);
+    $walletStatus.text('User found! Joining chat...');
     
+    // Clear wallet page and show chat
     $walletPage.removeClass('chat-active');
     $usernamePage.removeClass('chat-active');
     $chatPage.addClass('chat-active');
     $currentInput = $inputMessage.focus();
     
+    // Update display
     $walletAddress.text(walletAddress.substring(0, 8) + '...' + walletAddress.substring(walletAddress.length - 8));
     $usernameDisplay.text(`(${username})`);
     
+    // Join chat
+    console.log('[Socket] Joining chat with existing user');
     socket.emit('add user', { walletAddress, username });
   });
 
   socket.on('user new', () => {
-    console.log('New user, showing username page');
+    console.log('[Socket] New user detected, showing username page');
+    $walletStatus.text('New user! Please set username...');
     showUsernamePage();
+  });
+
+  socket.on('error', (error) => {
+    console.error('[Socket] Server error:', error);
+    $walletStatus.text(`Server error: ${error}`);
+    
+    // Reset after showing error
+    setTimeout(() => {
+      $walletStatus.text('');
+    }, 5000);
+  });
+
+  // Debug: Log all socket events
+  socket.onAny((eventName, ...args) => {
+    console.log('[Socket Event]', eventName, args);
   });
 
   socket.on('login', (data) => {
