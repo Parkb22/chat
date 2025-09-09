@@ -1,0 +1,33 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Chat Embed</title>
+    <noscript>
+      <meta http-equiv="refresh" content="0; url=/widget.html">
+    </noscript>
+    <script>
+      (function(){
+        try {
+          var qs = window.location.search || '';
+          var target = '/widget.html' + qs;
+          if (window.location.pathname !== '/widget.html') {
+            window.location.replace(target);
+          }
+        } catch (e) {
+          // Fallback: show a link
+          document.addEventListener('DOMContentLoaded', function(){
+            var a = document.createElement('a');
+            a.href = '/widget.html' + (window.location.search || '');
+            a.textContent = 'Open chat widget';
+            document.body.appendChild(a);
+          });
+        }
+      })();
+    </script>
+  </head>
+  <body></body>
+  </html>
+
+

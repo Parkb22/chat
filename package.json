@@ -75,6 +75,7 @@
   },
   "scripts": {
     "widget:static": "node server-widget.js",
-    "widget:rt": "node server-realtime.js"
+    "widget:rt": "node server-realtime.js",
+    "start": "node server-unified.js"
   }
 }
