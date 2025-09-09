@@ -907,9 +907,10 @@ $(function() {
       if (window.degenParkProfile) {
         let badges = `<span class="degenpark-badge" title="DegenPark Verified">DP</span>`;
         
-        // Add level badge if available
+        // Add level badge if available with tier-based color coding
         if (window.degenParkLevel) {
-          badges += `<span class="level-badge" title="Level ${window.degenParkLevel.level} (${window.degenParkLevel.points} points)">LVL ${window.degenParkLevel.level}</span>`;
+          const levelColor = getLevelBadgeColor(window.degenParkLevel.level);
+          badges += `<span class="level-badge ${levelColor}" title="Level ${window.degenParkLevel.level} (${window.degenParkLevel.points} points)">LVL ${window.degenParkLevel.level}</span>`;
         }
         
         $usernameDisplay.html(`(${username}) ${badges}`);
@@ -1783,13 +1784,22 @@ $(function() {
     }
 
     // Generate avatar - use DegenPark avatar if available, otherwise generate
-    console.log('[Avatar] Message data avatar:', data.avatar, 'for user:', data.username);
+    console.log('[Avatar] Processing avatar for:', data.username);
+    console.log('[Avatar] Message data avatar:', data.avatar);
     console.log('[Avatar] Wallet address:', data.walletAddress);
+    console.log('[Avatar] Known user data:', knownUsers.get(data.username));
+    console.log('[Avatar] Active socket data:', window.activeSockets?.[data.username]);
+    
     let avatar;
-    if (data.avatar) {
+    // First check message data, then known users, then active sockets
+    const avatarUrl = data.avatar || 
+                     knownUsers.get(data.username)?.avatar || 
+                     window.activeSockets?.[data.username]?.avatar;
+    
+    if (avatarUrl) {
       // Use DegenPark profile picture
-      avatar = `<img src="${data.avatar}" alt="${data.username}" class="user-avatar" onerror="console.log('Avatar failed to load:', this.src)" />`;
-      console.log('[Avatar] Using DegenPark avatar for', data.username, ':', data.avatar);
+      avatar = `<img src="${avatarUrl}" alt="${data.username}" class="user-avatar" onerror="console.log('Avatar failed to load:', this.src)" />`;
+      console.log('[Avatar] Using DegenPark avatar for', data.username, ':', avatarUrl);
     } else if (data.walletAddress) {
       // Generate fallback avatar
       avatar = generateAvatar(data.walletAddress, data.username);
@@ -1816,14 +1826,16 @@ $(function() {
     if (data.username === username && window.degenParkProfile) {
       usernameBadges += '<span class="msg-degenpark-badge" title="DegenPark Verified">DP</span>';
       if (window.degenParkLevel) {
-        usernameBadges += `<span class="msg-level-badge" title="Level ${window.degenParkLevel.level}">LVL ${window.degenParkLevel.level}</span>`;
+        const levelColor = getLevelBadgeColor(window.degenParkLevel.level);
+        usernameBadges += `<span class="msg-level-badge ${levelColor}" title="Level ${window.degenParkLevel.level}">LVL ${window.degenParkLevel.level}</span>`;
       }
     }
     // For other users, use socket data if available
     else if (isDegenParkUser) {
       usernameBadges += '<span class="msg-degenpark-badge" title="DegenPark Verified">DP</span>';
       if (userLevel !== undefined) {
-        usernameBadges += `<span class="msg-level-badge" title="Level ${userLevel}">LVL ${userLevel}</span>`;
+        const levelColor = getLevelBadgeColor(userLevel);
+        usernameBadges += `<span class="msg-level-badge ${levelColor}" title="Level ${userLevel}">LVL ${userLevel}</span>`;
       }
     }
     
@@ -2089,6 +2101,15 @@ $(function() {
     }
     return '#ffffff'; // Default white
   }
+
+  // Get level badge color based on level tiers
+  const getLevelBadgeColor = (level) => {
+    if (level >= 100) return 'level-legendary';      // 100+ = Legendary (Gold/Purple)
+    if (level >= 50) return 'level-epic';            // 50-99 = Epic (Purple)
+    if (level >= 25) return 'level-rare';            // 25-49 = Rare (Blue)
+    if (level >= 10) return 'level-uncommon';        // 10-24 = Uncommon (Green)
+    return 'level-common';                           // 1-9 = Common (Gray)
+  };
 
   // Generate user avatar from wallet address
   const generateAvatar = (walletAddress, username) => {
@@ -3212,6 +3233,11 @@ $(function() {
   
   // Direct Messages with conversation history
   const openDirectMessagesWithHistory = () => {
+    // Check if modal already exists and remove it first
+    if ($('#dm-history-modal').length) {
+      $('#dm-history-modal').remove();
+    }
+    
     const conversations = [];
     
     // Get existing conversations
